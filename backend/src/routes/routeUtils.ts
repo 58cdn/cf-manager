@@ -18,6 +18,15 @@ export function isDemoAccountId(id: number): boolean {
 }
 
 /**
+ * 判断当前是否为演示（Demo）部署。
+ * 约定：配置了 DEMO_ACCOUNT_IDS 即视为演示实例（对外只读展示）。
+ * 用于禁用会把账户清单/凭证整体带出的功能（如 CSV 导出）。
+ */
+export function isDemoMode(): boolean {
+  return !!config.demoAccountIds;
+}
+
+/**
  * 演示账户「只读」保护中间件。
  * 演示账户应保持只读：拦截除 GET/HEAD/OPTIONS 外的所有写操作（含 PUT/PATCH/POST/DELETE），
  * 命中即返回 403 DEMO_PROTECTED。

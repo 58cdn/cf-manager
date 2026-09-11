@@ -4,6 +4,15 @@
       <n-h2>{{ t('accounts.title') }}</n-h2>
       <n-space>
         <n-button @click="showImportModal = true">{{ t('accounts.importCsv') }}</n-button>
+        <n-tooltip v-if="isDemoMode" trigger="hover">
+          <template #trigger>
+            <span style="display: inline-block;">
+              <n-button disabled>{{ t('accounts.exportCsv') }}</n-button>
+            </span>
+          </template>
+          {{ t('accounts.exportDemoDisabled') }}
+        </n-tooltip>
+        <n-button v-else @click="openExportModal">{{ t('accounts.exportCsv') }}</n-button>
         <n-button type="primary" @click="showAddModal = true">{{ t('accounts.addAccount') }}</n-button>
       </n-space>
     </n-space>
@@ -156,6 +165,40 @@
       </template>
     </n-modal>
 
+    <n-modal v-model:show="showExportModal" preset="dialog" :title="t('accounts.exportModalTitle')" style="width: 560px; max-width: 95vw">
+      <n-space vertical :size="16">
+        <n-form label-placement="left" label-width="70">
+          <n-form-item :label="t('accounts.exportScope')">
+            <n-radio-group v-model:value="exportScope">
+              <n-space vertical :size="6">
+                <n-radio value="all">{{ t('accounts.exportScopeAll', { count: accountStore.counts.all }) }}</n-radio>
+                <n-radio value="filtered">{{ t('accounts.exportScopeFiltered', { count: accountStore.total }) }}</n-radio>
+                <n-radio value="selected" :disabled="checkedRowKeys.length === 0">
+                  {{ t('accounts.exportScopeSelected', { count: checkedRowKeys.length }) }}
+                </n-radio>
+              </n-space>
+            </n-radio-group>
+          </n-form-item>
+          <n-form-item :label="t('accounts.exportCredentials')">
+            <n-switch v-model:value="exportIncludeCredentials" />
+          </n-form-item>
+        </n-form>
+        <n-alert v-if="exportIncludeCredentials" type="warning" :bordered="false">
+          {{ t('accounts.exportCredentialsWarning') }}
+        </n-alert>
+        <n-alert v-if="exportIncludeCredentials" type="info" :bordered="false">
+          {{ t('accounts.exportImportHint') }}
+        </n-alert>
+        <n-alert v-if="!exportIncludeCredentials" type="info" :bordered="false">
+          {{ t('accounts.exportNoCredentialsHint') }}
+        </n-alert>
+      </n-space>
+      <template #action>
+        <n-button @click="showExportModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="exporting" @click="handleExport">{{ t('accounts.exportCsv') }}</n-button>
+      </template>
+    </n-modal>
+
     <n-modal v-model:show="showBatchResultModal" preset="dialog" :title="t('accounts.batchResultTitle')" style="width: 700px; max-width: 95vw">
       <n-space vertical :size="16">
         <n-space>
@@ -208,15 +251,6 @@
             <n-descriptions-item v-if="credData.auth_type === 'global_key'" :label="t('accounts.apiKey')">
               <n-input
                 :value="credData.api_key || ''"
-                type="password"
-                show-password-on="click"
-                readonly
-                :style="{ fontFamily: 'monospace' }"
-              />
-            </n-descriptions-item>
-            <n-descriptions-item v-if="credData.password" :label="t('accounts.loginPassword')">
-              <n-input
-                :value="credData.password"
                 type="password"
                 show-password-on="click"
                 readonly
@@ -315,7 +349,7 @@ import { NButton, NSpace, NProgress, NTag, NDropdown, useMessage } from 'naive-u
 import type { DataTableColumns } from 'naive-ui';
 import type { UploadFileInfo } from 'naive-ui';
 import { useAccountStore } from '../stores/accountStore';
-import { accountsApi } from '../api/accounts';
+import { accountsApi, type AccountExportParams } from '../api/accounts';
 import { dialog } from '../utils/discreteApi';
 import { settingsApi } from '../api/settings';
 
@@ -338,6 +372,12 @@ const importing = ref(false);
 const skipVerify = ref(false);
 const importFileList = ref<UploadFileInfo[]>([]);
 const importResult = ref<{ summary: { total: number; success: number; skipped: number; error: number }; results: Array<{ email: string; name: string; status: 'success' | 'skipped' | 'error'; message?: string }> } | null>(null);
+
+// 导出 CSV
+const showExportModal = ref(false);
+const exporting = ref(false);
+const exportScope = ref<'all' | 'filtered' | 'selected'>('all');
+const exportIncludeCredentials = ref(false);
 const editingAccountId = ref<number | null>(null);
 const editFeatures = ref<string[]>([]);
 
@@ -349,6 +389,9 @@ const searchInput = ref('');
 
 // Worker 平台不支持代理
 const isWorkerPlatform = ref(false);
+
+// 演示（Demo）部署：配置了 DEMO_ACCOUNT_IDS 即视为演示实例，禁用导出
+const isDemoMode = ref(false);
 
 // 批量操作状态
 const checkedRowKeys = ref<number[]>([]);
@@ -390,7 +433,6 @@ const credData = ref<{
   email: string | null;
   api_token: string | null;
   api_key: string | null;
-  password: string | null;
   proxy_url: string;
   proxy_enabled: number;
 } | null>(null);
@@ -738,6 +780,71 @@ async function handleImport() {
   }
 }
 
+function openExportModal() {
+  if (isDemoMode.value) {
+    message.warning(t('accounts.exportDemoDisabled'));
+    return;
+  }
+  // 有选中项时默认导出选中，否则默认全量
+  exportScope.value = checkedRowKeys.value.length > 0 ? 'selected' : 'all';
+  showExportModal.value = true;
+}
+
+function exportFilenameStamp(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+async function handleExport() {
+  const scope = exportScope.value;
+  if (scope === 'selected' && checkedRowKeys.value.length === 0) {
+    message.warning(t('accounts.msg.exportNoSelection'));
+    return;
+  }
+  if (scope === 'filtered' && accountStore.total === 0) {
+    message.warning(t('accounts.msg.exportEmpty'));
+    return;
+  }
+  if (scope === 'all' && accountStore.counts.all === 0) {
+    message.warning(t('accounts.msg.exportEmpty'));
+    return;
+  }
+
+  exporting.value = true;
+  try {
+    const params: AccountExportParams = { includeCredentials: exportIncludeCredentials.value };
+    if (scope === 'selected') {
+      params.ids = checkedRowKeys.value.slice();
+    } else if (scope === 'filtered') {
+      params.filter = accountStore.filter;
+      params.search = accountStore.search;
+    }
+    const blob = await accountStore.exportCsv(params);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cf-manager-accounts-${exportFilenameStamp()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportModal.value = false;
+    message.success(t('accounts.msg.exportSuccess'));
+  } catch (e: any) {
+    // 请求标记了 _silent，此处统一提示；失败响应为 JSON Blob，需解析出真实错误信息
+    let msg = e?.errorMessage || t('accounts.msg.exportFailed');
+    const data = e?.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await data.text());
+        msg = parsed?.error?.message || parsed?.message || msg;
+      } catch { /* 非 JSON 响应，保留原提示 */ }
+    }
+    message.error(msg);
+  } finally {
+    exporting.value = false;
+  }
+}
+
 const importResultColumns = computed<DataTableColumns<any>>(() => [
   { title: t('accounts.table.email'), key: 'email', width: 220, ellipsis: { tooltip: true } },
   { title: t('accounts.table.accountNameShort'), key: 'name', width: 140 },
@@ -857,10 +964,11 @@ const columns = computed<DataTableColumns<any>>(() => {
 
 onMounted(async () => {
   accountStore.fetchAccounts();
-  // 检测运行平台（Worker 平台不支持代理功能）
+  // 检测运行平台（Worker 平台不支持代理功能）与演示模式（禁用导出）
   try {
     const { data } = await settingsApi.get();
     isWorkerPlatform.value = data.platform === 'cloudflare-workers';
+    isDemoMode.value = !!data.demo_account_ids;
   } catch { /* 忽略 */ }
 });
 </script>

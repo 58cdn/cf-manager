@@ -51,7 +51,7 @@
 | **App Store** | Built-in Catalog template marketplace · third-party source extension · one-click Workers/Pages deployment |
 | **Internationalization** | Built-in zh-CN / en UI (vue-i18n, 1000+ keys) · auto-detect browser language · persistent choice |
 | **System Settings** | HTTP/SOCKS5 proxy · Resin proxy pool (per-account sticky IP) · cache purge · scheduled task extensions |
-| **Security** | AES-encrypted API Token · optional login password · `/admin/` path hiding + nginx disguise · audit log |
+| **Security** | AES-encrypted API Token · `/admin/` path hiding + nginx disguise · audit log |
 
 ---
 

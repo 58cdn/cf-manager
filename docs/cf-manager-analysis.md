@@ -734,6 +734,7 @@ views/*.vue ──▶ stores/*.ts ──▶ api/*.ts ──▶ api/client.ts ─
 | POST | `/test-batch` | 批量测试 |
 | POST | `/batch/features` `/batch/delete` `/batch/proxy` | 批量功能/删除/代理 |
 | POST | `/import-csv` | CSV 批量导入账户 |
+| GET | `/export-csv` | CSV 导出账户（按 `ids`/`filter`+`search` 选范围，`includeCredentials` 控制是否含明文凭证；演示模式下 403 `DEMO_PROTECTED`） |
 
 ### 10.3 DNS `dns`（→ `/api/dns`）
 

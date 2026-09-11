@@ -16,7 +16,6 @@ export interface Account {
   enabled_features: string;
   created_at: string;
   updated_at: string;
-  password: string | null;
   available_features: string;
   proxy_url: string;
   proxy_enabled: number;
@@ -30,7 +29,6 @@ export interface AccountInput {
   email?: string | null;
   account_id?: string;
   enabled_features?: string;
-  password?: string;
   available_features?: string;
   proxy_url?: string;
   proxy_enabled?: number;
@@ -111,7 +109,7 @@ export function getAccountById(id: number): Account | undefined {
 export function createAccount(input: AccountInput): number {
   const features = input.enabled_features || ALL_FEATURES.join(',');
   const stmt = getDb().prepare(
-    'INSERT INTO accounts (name, auth_type, api_token, api_key, email, account_id, enabled_features, password, proxy_url, proxy_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO accounts (name, auth_type, api_token, api_key, email, account_id, enabled_features, proxy_url, proxy_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const result = stmt.run(
     input.name,
@@ -121,7 +119,6 @@ export function createAccount(input: AccountInput): number {
     input.email || null,
     input.account_id || null,
     features,
-    input.password || null,
     input.proxy_url || '',
     input.proxy_enabled ?? 0
   );

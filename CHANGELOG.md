@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.2.0] - 2026-09-11
+
+### ✨ 新功能
+
+- **账户管理新增「导出 CSV」，与既有「导入 CSV」打通跨实例迁移闭环（双端对称）**：backend（Express）与 worker（Hono）的 accounts 路由新增 `GET /api/accounts/export-csv`。列集刻意保持最小且与导入端严格对齐——常驻 `name,email,globalKey`（`globalKey` 即 Cloudflare **Global API Key**，落库到 `accounts.api_key`，刻意不叫 `apiKey` 以与 `apiToken` 区分）；仅当导出范围内存在 **token 认证账户**时追加 `apiToken` 列（该类型无邮箱，无法用 `email+globalKey` 表达，不追加就会静默丢账户）。导出范围三选一：`ids=1,2,3`（仅指定账户）、`filter=all|active|unverified` + `search=xxx`（按列表当前筛选条件）、默认全量；`includeCredentials=0` 只导出名称与邮箱，默认 `1` 导出 `globalKey` / `apiToken` 明文。响应前置 BOM（Excel 正确识别 UTF-8）+ `Content-Disposition: attachment`，文件名 `cf-manager-accounts-<时间戳>.csv`。两端新增 `toCsvCell` 转义（逗号/换行/双引号）与分页取全量的 `collectAccountsForExport`（`listAccountsPaged` 单页上限 500）。
+  - **响应包装兼容**：worker 侧 `responseWrapper` 按 `content-type` 跳过非 JSON 响应；backend 侧改用 `res.send` 绕开只劫持 `res.json` 的包装逻辑，两端返回体均保持纯 CSV。
+- **`POST /import-csv` 升级为按列名解析，可直接回灌导出文件（双端对称）**：此前只识别 `email` / `apiKey` / `password` 三列且认证类型写死为 `global_key`，导致 token 类型账户（无邮箱）整行报错跳过。现**只识别 `email` / `globalKey` / `apiToken` / `name` 四个列名**（大小写不敏感，其余列一律忽略）：
+  - `globalKey` → global_key 账户凭证，需与 `email` 同时提供
+  - `apiToken` → 识别为 token 认证（backend 用 `Cloudflare({ apiToken })`、worker 用 `Authorization: Bearer` 校验），**token 行允许没有 email**
+  - `name` → 原样还原账户名；缺列时仍回退 `nameFromEmail()`，token 行无邮箱时用 `未命名账户-N` 占位
+  - **去重键按认证类型区分**：global_key 按邮箱；token 因密文含随机 IV 无法比对密文，改为**解密后比对明文**（`tokenAccountExists`），同批次内也按 `apiToken` 去重
+  - **表头校验**：必须包含 `globalKey` 或 `apiToken` 列，且必须包含 `email` 或 `apiToken` 列
+- **前端：账户列表页新增导出弹窗**：`AccountsView` 顶部新增「导出 CSV」按钮，弹窗内选择导出范围（全部 / 当前筛选结果 / 已选中，各带数量提示）与是否包含明文凭证；勾选凭证时展示明文泄露警示并提示该文件可在其他实例完整还原，未勾选时提示该文件无法直接用于重新导入。新增 `accountsApi.exportCsv`（`responseType: blob` + `_silent`，失败时解析 JSON Blob 取出后端真实错误信息）与 `accountStore.exportCsv`；导入弹窗说明文案同步更新；补齐 `accounts.*` 中英文文案。
+
+### 🔒 安全与合规
+
+- **演示（Demo）部署整体禁用导出**：新增实例级判定 `isDemoMode()` / `isDemoMode(demoIds)`（约定：配置了 `DEMO_ACCOUNT_IDS` 即为演示部署），`GET /export-csv` 命中即返回 403 `DEMO_PROTECTED`（「演示模式下不支持导出账户」）——导出会把账户清单与凭证整体带出，与演示实例对外只读的定位冲突。前端 `AccountsView` 从 `/api/settings` 的 `demo_account_ids` 识别演示模式，「导出 CSV」按钮置灰并附 tooltip 说明，`openExportModal` 另加一道兜底拦截。
+- **导出凭证的暴露面收敛**：演示账户（`DEMO_ACCOUNT_IDS`）凭证始终置空（保留为纵深防御，防止后续放开导出时误泄露）；单个账户解密失败仅该行凭证留空、不阻断整体导出；批量导出只写一条汇总审计（`export_accounts_csv`，含范围与是否含凭证），避免逐账户审计记录淹没日志界面。
+
+### ⚠️ 破坏性变更（双端）
+
+- **CSV 导入列名严格化，旧的 `apiKey` 表头不再兼容**：`globalKey` 列不保留历史 `apiKey` / `api_key` 别名，`apiToken` 同样不认 `api_token`——每个字段只对应一个列名。用旧格式（`email,password,apiKey`）导入会在表头校验处直接返回 400「CSV 必须包含 globalKey 或 apiToken 列」，不会静默错判；请将表头改为 `name,email,globalKey`（token 账户行用 `apiToken`）。
+- **彻底移除 `accounts.password` 字段**：该字段（登录密码）是早期批量导入「邮箱 + 密码 + API Key」三件套账号时顺带落库的字段，**界面从未提供填写/编辑入口**（`updateAccount` 的白名单也不含它），唯一写入途径是 CSV 导入的 `password` 列；实际部署中大量库该列全为空。经确认无用后连同数据库列一并移除。
+  - **数据库**：
+    - backend：基础建表去掉该列；`src/db.ts` 的 `MIGRATIONS` 新增 `0008_accounts_drop_password`，并为迁移记录引入 `kind: 'add' | 'drop'` 语义（`drop` 仅当列确实存在时才执行 `ALTER TABLE ... DROP COLUMN`，新库自动跳过），同时移除历史 `0002_accounts_password` 加列条目。
+    - worker：`src/db/schema.sql` 去掉该列；新增 `migrations/0009_accounts_drop_password.sql`；**删除**历史 `0002_accounts_password.sql`（其 `ADD COLUMN password` 会触发 CI `schema-check` 的「迁移增加的列必须在 schema.sql 中」规则；已部署库已在 `_migrations` 记录该版本，删文件无影响）。
+  - **迁移器**：`worker/scripts/migrate.mjs` 对 `DROP COLUMN` 语句单独放宽——仅当语句本身是删列且报错为 `no such column` 时视为幂等成功，避免全新库（schema.sql 已无该列）执行删列迁移时中断部署；其余语句的错误处理不变，不会误吞真实的列名错误。
+  - **代码/接口**：`Account` / `AccountInput` 与 worker `createAccount` 的 `password` 字段与参数移除；`GET /:id/credentials` 不再解密与返回 `password`；CSV 导入不再解析 `password` 列（旧 CSV 含该列会被安全忽略）；前端「查看 API 凭证」弹窗移除「登录密码」行及 `accounts.loginPassword` 文案；README 双语版功能表中的「可选登录密码」条目同步删除。
+  - **升级影响（不可逆）**：本版本起，此前由 CSV 导入写入的登录密码将随列一并丢弃、无法恢复。如仍需留档，请在升级前自行备份（直接读取 `accounts.password` 并用 `ENCRYPTION_KEY` 解密）。
+
 ## [2.1.0] - 2026-09-04
 
 ### ✨ 新功能
