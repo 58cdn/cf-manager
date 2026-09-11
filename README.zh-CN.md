@@ -51,7 +51,7 @@
 | **应用商店** | 内置 Catalog 模板市场 · 第三方源扩展 · 一键部署 Workers/Pages |
 | **国际化** | 内置 zh-CN / en 双语界面（vue-i18n，1000+ 词条）· 自动检测浏览器语言 · 选择持久化 |
 | **系统设置** | HTTP/SOCKS5 代理 · Resin 代理池（每账户 sticky IP）· 缓存清除 · 定时任务扩展 |
-| **安全特性** | API Token AES 加密 · 可选登录密码 · `/admin/` 路径隐藏 + nginx 伪装 · 审计日志 |
+| **安全特性** | API Token AES 加密 · `/admin/` 路径隐藏 + nginx 伪装 · 审计日志 |
 
 ---
 

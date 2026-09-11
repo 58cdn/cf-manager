@@ -5,6 +5,15 @@ export function isDemoAccount(id: number, demoIds: string | undefined): boolean 
 }
 
 /**
+ * 判断当前是否为演示（Demo）部署。
+ * 约定：配置了 DEMO_ACCOUNT_IDS 即视为演示实例（对外只读展示）。
+ * 用于禁用会把账户清单/凭证整体带出的功能（如 CSV 导出）。
+ */
+export function isDemoMode(demoIds: string | undefined): boolean {
+  return !!demoIds;
+}
+
+/**
  * Hono 中间件：演示账户「毁灭性操作」保护。
  * 拦截所有针对演示账户的销毁/删除类操作，返回 403 DEMO_PROTECTED：
  *  - 所有 DELETE 请求（删 KV 命名空间/键、删 D1 库、删 R2 桶/对象、删 Worker/Pages、删 Secret/Domain/Route 等）

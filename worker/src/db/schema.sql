@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS accounts (
   account_id      TEXT,
   is_active       INTEGER DEFAULT 1,
   enabled_features TEXT DEFAULT 'ai,workers,browser_render,dns,storage',
-  password        TEXT,
   available_features TEXT DEFAULT '',
   proxy_url       TEXT DEFAULT '',
   proxy_enabled   INTEGER DEFAULT 0,

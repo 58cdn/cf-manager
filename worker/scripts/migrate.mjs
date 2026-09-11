@@ -68,6 +68,12 @@ function runStatement(stmt) {
     return { ok: true };
   } catch (e) {
     const msg = String((e && (e.stderr || e.stdout)) || e.message || '');
+    // 删列迁移天然不可幂等：全新库的 schema.sql 已不含该列，DROP COLUMN 会报「no such column」。
+    // 仅对 DROP COLUMN 语句放宽这一条，避免误吞其他迁移里的真实列名错误。
+    const isDropColumn = /^\s*ALTER\s+TABLE\s+\w+\s+DROP\s+COLUMN\b/i.test(stmt);
+    if (isDropColumn && /no such column/i.test(msg)) {
+      return { ok: true, idempotent: true };
+    }
     if (/already exists|duplicate column|duplicate.*name|constraint.*failed/i.test(msg)) {
       return { ok: true, idempotent: true };
     }

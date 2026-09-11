@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { accountsApi } from '../api/accounts';
+import { accountsApi, type AccountExportParams } from '../api/accounts';
 
 export const useAccountStore = defineStore('accounts', () => {
   const accounts = ref<any[]>([]);
@@ -105,7 +105,6 @@ export const useAccountStore = defineStore('accounts', () => {
     email: string | null;
     api_token: string | null;
     api_key: string | null;
-    password: string | null;
     proxy_url: string;
     proxy_enabled: number;
   };
@@ -117,11 +116,16 @@ export const useAccountStore = defineStore('accounts', () => {
     return data as { summary: { total: number; success: number; skipped: number; error: number }; results: Array<{ email: string; name: string; status: 'success' | 'skipped' | 'error'; message?: string }> };
   }
 
+  async function exportCsv(params: AccountExportParams = {}) {
+    const { data } = await accountsApi.exportCsv(params);
+    return data as Blob;
+  }
+
   return {
     accounts, quota, loading,
     page, pageSize, filter, search, total, counts,
     fetchAccounts, setPage, setPageSize, setFilter, setSearch,
-    createAccount, updateAccount, deleteAccount, testAccount, testBatch, updateFeatures, clearExhausted, importCsv,
+    createAccount, updateAccount, deleteAccount, testAccount, testBatch, updateFeatures, clearExhausted, importCsv, exportCsv,
     getCredentials,
   };
 });

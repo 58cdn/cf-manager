@@ -7,6 +7,15 @@ export interface AccountListParams {
   search?: string;
 }
 
+export interface AccountExportParams {
+  /** 仅导出指定账户（优先级高于 filter） */
+  ids?: number[];
+  filter?: 'all' | 'active' | 'unverified';
+  search?: string;
+  /** 是否包含明文凭证（apiKey/apiToken），默认 false */
+  includeCredentials?: boolean;
+}
+
 export const accountsApi = {
   getAll: (params: AccountListParams = {}) =>
     apiClient.get('/accounts', { params }),
@@ -31,6 +40,18 @@ export const accountsApi = {
       timeout: 600000,
     });
   },
+  exportCsv: (params: AccountExportParams = {}) =>
+    apiClient.get('/accounts/export-csv', {
+      params: {
+        ...(params.ids && params.ids.length > 0 ? { ids: params.ids.join(',') } : {}),
+        ...(params.filter ? { filter: params.filter } : {}),
+        ...(params.search ? { search: params.search } : {}),
+        includeCredentials: params.includeCredentials ? '1' : '0',
+      },
+      responseType: 'blob',
+      timeout: 300000,
+      _silent: true,
+    }),
   // 批量操作
   batchFeatures: (ids: number[], enabled_features: string) =>
     apiClient.post('/accounts/batch/features', { ids, enabled_features }),
