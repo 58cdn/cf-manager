@@ -270,7 +270,7 @@ onMounted(async () => {
     applyVersion(resp.data);
     showLogin.value = false;
   } catch (err: any) {
-    if (err?.response?.status === 401 || err?.response?.status === 403) {
+    if (err?.response?.status === 401 || err?.response?.status === 403 || err?.response?.data?.error?.code === 'AUTH_LOCKED') {
       showLogin.value = true;
     }
   } finally {
@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
 });
 
 async function handleLogin() {
-  if (!loginSecret.value) return;
+  if (!loginSecret.value || loginLoading.value) return;
   loginLoading.value = true;
   try {
     localStorage.setItem('api_token', loginSecret.value);
@@ -292,10 +292,12 @@ async function handleLogin() {
     applyVersion(resp.data);
     isAuthenticated.value = true;
     showLogin.value = false;
-  } catch {
+  } catch (err: any) {
     localStorage.removeItem('api_token');
     isAuthenticated.value = false;
-    globalMessage.error(t('app.invalidApiSecret'));
+    globalMessage.error(err?.response?.data?.error?.code === 'AUTH_LOCKED'
+      ? t('app.authLocked', { seconds: err.response.data.error.retry_after })
+      : t('app.invalidApiSecret'));
   } finally {
     loginLoading.value = false;
   }

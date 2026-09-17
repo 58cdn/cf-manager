@@ -50,6 +50,8 @@ worker/src/services/catalogValidator.ts
 worker/src/services/catalogValidate.generated.ts
 
 # Ignore generated version files (managed by gen-version script)
+backend/src/services/authLockout.ts
+worker/src/services/authLockout.ts
 worker/src/version.ts
 backend/src/version.ts
 

@@ -46,7 +46,7 @@ apiClient.interceptors.response.use(
       error.errorMessage = body?.message || error?.message || i18n.global.t('common.networkError');
     }
 
-    if (error?.response?.status === 401 || (error?.response?.status === 403 && errObj?.code !== 'R2_NOT_ENABLED' && errObj?.code !== 10042)) {
+    if (errObj?.code === 'AUTH_LOCKED' || error?.response?.status === 401 || (error?.response?.status === 403 && errObj?.code !== 'R2_NOT_ENABLED' && errObj?.code !== 10042)) {
       localStorage.removeItem('api_token');
       window.dispatchEvent(new Event('auth-expired'));
     }

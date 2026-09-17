@@ -1,4 +1,6 @@
-export interface Env {
+import type { LockoutEnv } from './services/authLockout';
+
+export interface Env extends LockoutEnv {
   DB: D1Database;
   API_SECRET: string;
   ENCRYPTION_KEY: string;

@@ -61,7 +61,8 @@
     "logout": "Logout",
     "apiSecret": "API Secret",
     "enterApiSecret": "Enter API Secret",
-    "invalidApiSecret": "Invalid API Secret"
+    "invalidApiSecret": "Invalid API Secret",
+    "authLocked": "Too many failed attempts. Try again in {seconds} seconds."
   },
   "menu": {
     "dashboard": "Dashboard",

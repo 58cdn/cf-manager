@@ -36,6 +36,7 @@ RUN node scripts/gen-version.js backend
 COPY shared/model-pricing.json ./src/data/model-pricing.json
 COPY shared/catalog.schema.json ./src/services/catalog.schema.json
 COPY shared/catalogValidator.ts ./src/services/catalogValidator.ts
+COPY shared/authLockout.ts ./src/services/authLockout.ts
 # catalog 校验器由 ajv standalone 预编译生成（运行时避免 new Function，兼容 Cloudflare）。
 COPY scripts/gen-catalog-validator.js ./scripts/gen-catalog-validator.js
 RUN CATALOG_SCHEMA_PATH=/app/src/services/catalog.schema.json \
