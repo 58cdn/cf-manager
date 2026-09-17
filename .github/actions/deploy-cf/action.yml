@@ -2,7 +2,7 @@ name: Deploy to Cloudflare Pages
 description: CF Manager 部署到 Cloudflare Pages 的公共逻辑（D1/KV/构建/部署）
 
 # Composite Action —— 由 deploy-cf.yml / deploy-cf-secret.yml 调用
-# 调用方负责设置 env: CLOUDFLARE_GLOBAL_KEY, CLOUDFLARE_EMAIL, ENCRYPTION_KEY, API_SECRET
+# 调用方负责设置 env: CLOUDFLARE_GLOBAL_KEY, CLOUDFLARE_EMAIL, ENCRYPTION_KEY, API_SECRET, UNLOCK_KEY（可选）
 # 所有部署逻辑集中在此文件。新增表：编辑 worker/src/db/schema.sql（当前完整 schema 的单一真相源）；
 # 新增/改列等演进：在 worker/src/db/migrations/ 新增带版本号的 .sql，由 migrate.mjs 记录到
 # D1 的 _migrations 表、仅执行一次（解决逐行 migrations.sql 的手工同步与冗余问题）。
@@ -38,6 +38,10 @@ runs:
       uses: actions/setup-node@v5
       with:
         node-version: '22'
+
+    - name: Prepare recovery key (generated value is shown once)
+      shell: bash
+      run: node scripts/prepare-unlock-key.cjs
 
     - name: Install wrangler
       shell: bash
@@ -318,6 +322,7 @@ runs:
 
         # 使用 here-string 传入，并用 $VAR 引用 job 环境变量，避免明文出现在回显的脚本里
         wrangler pages secret put ENCRYPTION_KEY --project-name "$PROJECT" <<< "$ENCRYPTION_KEY"
+        wrangler pages secret put UNLOCK_KEY --project-name "$PROJECT" <<< "$UNLOCK_KEY"
         if [ -n "$API_SECRET" ]; then
           wrangler pages secret put API_SECRET --project-name "$PROJECT" <<< "$API_SECRET"
         fi

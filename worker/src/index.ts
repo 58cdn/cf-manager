@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
 import { authMiddleware } from './middleware/auth';
+import unlockRouter from './routes/unlock';
 import { errorHandler } from './middleware/errorHandler';
 import { v1ErrorHandler } from './middleware/v1ErrorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
@@ -25,6 +26,9 @@ import tunnelsRouter from './routes/tunnels';
 import aiRouter from './routes/ai';
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Keep recovery URLs out of generic request/error logging and the asset fallback.
+app.route('/admin/unlock', unlockRouter);
 
 app.use('*', cors({
   origin: '*',

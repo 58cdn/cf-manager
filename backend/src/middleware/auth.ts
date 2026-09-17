@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
+import { getDb } from '../db';
+import { cleanupLockoutSql, failureArgs, failLockoutSql, lockoutError, readLockoutSql, resetLockoutSql, retentionMs } from '../services/authLockout';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // 未配置 API_SECRET 时跳过鉴权（开发/演示场景，向后兼容已有部署）。
@@ -10,6 +12,22 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
+  const policy = config.authLockout;
+  const now = Date.now();
+  // req.ip honors only the explicitly configured trusted proxy addresses.
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const db = policy.enabled ? getDb() : undefined;
+  const rejectLocked = () => {
+    const row = db?.prepare(readLockoutSql).get(ip) as { locked_until: number } | undefined;
+    const seconds = Math.ceil(((row?.locked_until ?? 0) - now) / 1000);
+    if (seconds <= 0) return false;
+    res.setHeader('Retry-After', String(seconds));
+    res.status(429).json(lockoutError(seconds));
+    return true;
+  };
+  db?.prepare(cleanupLockoutSql).run(now - retentionMs, now);
+  if (rejectLocked()) return;
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Missing or invalid authorization header' } });
@@ -18,9 +36,13 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   const token = authHeader.substring(7);
   if (token !== config.apiSecret) {
+    db?.prepare(failLockoutSql).get(...failureArgs(ip, now, policy));
+    if (rejectLocked()) return;
     res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Invalid API secret' } });
     return;
   }
 
+  db?.prepare(resetLockoutSql).run(ip, now);
+  if (rejectLocked()) return;
   next();
 }

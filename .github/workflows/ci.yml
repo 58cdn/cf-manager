@@ -44,6 +44,8 @@ jobs:
       - name: Test backend
         working-directory: backend
         run: npm run test
+      - name: Test deployment recovery key generation
+        run: node --test scripts/prepare-unlock-key.test.cjs
 
   build-frontend:
     runs-on: ubuntu-latest
