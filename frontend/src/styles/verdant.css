@@ -1,0 +1,122 @@
+/* All visual changes are opt-in. Default continues to use the original stylesheet. */
+html[data-ui-theme='verdant'] {
+  --app-bg: #f5f7f9;
+  --app-bg-card: #fff;
+  --app-bg-hover: #edf5f0;
+  --app-bg-secondary: #edf2f5;
+  --app-bg-tertiary: #e5ebef;
+  --app-border: #dce3e9;
+  --app-border-light: #e8edf1;
+  --app-border-input: #ccd6df;
+  --app-text-primary: #1f2937;
+  --app-text-heading: #1f2937;
+  --app-text-secondary: #526071;
+  --app-text-tertiary: #526071;
+  --app-text-muted: #526071;
+  --app-text-disabled: #687789;
+  --app-input-bg: #fff;
+  --app-input-border: #ccd6df;
+  --ui-primary: #16794b;
+  --ui-tint: #e7f3ec;
+  --ui-shadow: 0 2px 8px rgb(24 40 32 / 4%);
+  --text-h: var(--app-text-heading);
+  --bg: var(--app-bg);
+  color-scheme: light;
+  background: var(--app-bg);
+}
+html[data-ui-theme='verdant'].app-dark {
+  --app-bg: #111827;
+  --app-bg-card: #1b2433;
+  --app-bg-hover: #263449;
+  --app-bg-secondary: #222f41;
+  --app-bg-tertiary: #2c3a4d;
+  --app-border: #38465a;
+  --app-border-light: #2c3a4d;
+  --app-border-input: #526176;
+  --app-text-primary: #e5e7eb;
+  --app-text-heading: #e5e7eb;
+  --app-text-secondary: #a8b3c4;
+  --app-text-tertiary: #a8b3c4;
+  --app-text-muted: #a8b3c4;
+  --app-text-disabled: #8593a6;
+  --app-input-bg: #1b2433;
+  --app-input-border: #526176;
+  --ui-primary: #63d69b;
+  --ui-tint: #234238;
+  --ui-shadow: none;
+  color-scheme: dark;
+}
+
+/* Low-specificity scope keeps component-specific editor and form styling intact. */
+:where(html[data-ui-theme='verdant']) body {
+  font: 14px/1.6 system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0;
+  color: var(--app-text-primary);
+  background: var(--app-bg);
+}
+html[data-ui-theme='verdant'] .workspace-layout > .n-layout-scroll-container {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+}
+html[data-ui-theme='verdant'] .workspace-header { height: 56px !important; flex: 0 0 56px; gap: 12px; padding: 0 24px !important; }
+html[data-ui-theme='verdant'] .current-section { margin-right: auto; font-weight: 600; }
+html[data-ui-theme='verdant'] .workspace-content { flex: 1; min-height: 0; height: auto !important; }
+html[data-ui-theme='verdant'] .workspace-content > .n-layout-scroll-container { padding: 24px !important; }
+html[data-ui-theme='verdant'] .n-layout-footer { flex-shrink: 0; color: var(--app-text-muted) !important; }
+html[data-ui-theme='verdant'] .sidebar-brand { height: 56px; padding: 0 16px !important; display: flex; align-items: center; justify-content: center; box-sizing: border-box; color: var(--ui-primary); letter-spacing: 0; }
+html[data-ui-theme='verdant'] .n-layout-sider .n-menu { padding: 8px; }
+html[data-ui-theme='verdant'] .n-menu-item-content { border-radius: 8px; }
+html[data-ui-theme='verdant'] .page-view,
+html[data-ui-theme='verdant'] .dashboard-page { min-width: 0; gap: 16px; }
+html[data-ui-theme='verdant'] .page-view > .n-space:first-child { margin-bottom: 16px; row-gap: 12px !important; }
+html[data-ui-theme='verdant'] .page-view > .n-space:first-child .n-h2 { margin: 0; font-size: 24px; font-weight: 650; }
+html[data-ui-theme='verdant'] .page-view > .n-h2 { margin: 0 0 16px; font-size: 24px; font-weight: 650; }
+html[data-ui-theme='verdant'] .n-card { box-shadow: var(--ui-shadow); }
+html[data-ui-theme='verdant'] .n-data-table { min-width: 0; max-width: 100%; }
+html[data-ui-theme='verdant'] .n-data-table-wrapper { border: 1px solid var(--app-border); border-radius: 12px; overflow: hidden; }
+html[data-ui-theme='verdant'] .n-data-table-th { font-weight: 600; }
+html[data-ui-theme='verdant'] .compact-card { height: 36px; padding: 0 8px; border-radius: 8px; }
+html[data-ui-theme='verdant'] .compact-card__name { font-weight: 500; }
+html[data-ui-theme='verdant'] .dashboard-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; flex-shrink: 0; }
+html[data-ui-theme='verdant'] .stat-block { padding: 16px; border: 1px solid var(--app-border); border-radius: 12px; background: var(--app-bg-card); box-shadow: var(--ui-shadow); }
+html[data-ui-theme='verdant'] .stat-label { display: flex; align-items: center; gap: 8px; color: var(--app-text-secondary); font-size: 12px; }
+html[data-ui-theme='verdant'] .stat-value { display: block; font-size: 26px; line-height: 1.4; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 8px; color: var(--app-text-primary); }
+html[data-ui-theme='verdant'] .stat-alert { color: var(--app-text-secondary); font-size: 12px; margin-top: 4px; }
+html[data-ui-theme='verdant'] .dashboard-page > .log-table-wrapper { min-height: 240px !important; }
+html[data-ui-theme='verdant'] .dashboard-page { height: auto; min-height: 100%; }
+html[data-ui-theme='verdant'] .dashboard-page > .log-table-wrapper .n-data-table { min-height: 240px; }
+
+html[data-ui-theme='verdant'] .login-page { box-sizing: border-box; min-height: 100svh; height: auto !important; gap: 64px; padding: 96px 32px !important; background: var(--app-bg); }
+html[data-ui-theme='verdant'] .login-brand { max-width: 360px; }
+html[data-ui-theme='verdant'] .brand-mark { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; color: var(--ui-primary); background: var(--ui-tint); margin-bottom: 24px; }
+html[data-ui-theme='verdant'] .brand-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0; color: var(--ui-primary); }
+html[data-ui-theme='verdant'] .login-brand h1 { font-size: 36px; line-height: 1.2; letter-spacing: 0; font-weight: 650; margin: 16px 0; }
+html[data-ui-theme='verdant'] .login-brand p { color: var(--app-text-secondary); max-width: 34ch; }
+html[data-ui-theme='verdant'] .login-page > .n-card { padding: 8px; }
+html[data-ui-theme='verdant'] .mobile-content { padding: 16px 16px 88px; min-width: 0; }
+html[data-ui-theme='verdant'] .fab-panel { background: var(--app-bg-card); border-color: var(--app-border); box-shadow: 0 16px 48px rgb(0 0 0 / 20%); }
+html[data-ui-theme='verdant'] .fab-panel-header { border-color: var(--app-border); }
+html[data-ui-theme='verdant'] .fab-item--active { color: var(--ui-primary); background: var(--ui-tint); }
+html[data-ui-theme='verdant'] .fab-item-label { white-space: normal; text-align: center; font-size: 12px; }
+html[data-ui-theme='verdant'] .fab-item { min-height: 64px; }
+html[data-ui-theme='verdant'] .fab-btn { background: var(--ui-primary); color: var(--app-bg); box-shadow: 0 4px 16px rgb(0 0 0 / 18%); }
+html[data-ui-theme='verdant'] .fab-btn--open { background: var(--app-bg-card); color: var(--app-text-primary); }
+
+@media (max-width: 1024px) {
+  html[data-ui-theme='verdant'] .dashboard-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  html[data-ui-theme='verdant'] .login-page { gap: 32px; }
+}
+@media (max-width: 768px) {
+  html[data-ui-theme='verdant'] .login-page { flex-direction: column; align-items: stretch !important; padding: 88px 24px 32px !important; gap: 24px; }
+  html[data-ui-theme='verdant'] .login-brand,
+  html[data-ui-theme='verdant'] .login-page > .n-card { width: 100% !important; max-width: 440px !important; margin: 0 auto; }
+  html[data-ui-theme='verdant'] .login-brand h1 { font-size: 28px; }
+  html[data-ui-theme='verdant'] .brand-mark { margin-bottom: 16px; }
+  html[data-ui-theme='verdant'] .stat-block { padding: 12px; }
+  html[data-ui-theme='verdant'] .stat-value { font-size: 24px; }
+  html[data-ui-theme='verdant'] .page-view > .n-space { max-width: 100%; }
+  html[data-ui-theme='verdant'] .page-view > .n-space > div { max-width: 100%; }
+  html[data-ui-theme='verdant'] .n-button-group { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui-theme='verdant'] *, html[data-ui-theme='verdant'] *::before, html[data-ui-theme='verdant'] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

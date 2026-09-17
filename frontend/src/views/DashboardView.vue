@@ -28,7 +28,14 @@
       </n-space>
     </n-space>
 
-    <n-space v-if="globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0" :wrap="true">
+    <div v-if="uiTheme === 'verdant'" class="dashboard-stats">
+      <div v-for="stat in summaryStats" :key="stat.label" class="stat-block">
+        <div class="stat-label"><n-icon :component="stat.icon" :size="18" />{{ stat.label }}</div>
+        <strong class="stat-value">{{ stat.value }}</strong>
+        <p v-if="stat.exhausted" class="stat-alert">{{ t('appearance.exhaustedAccounts', { count: stat.exhausted }) }}</p>
+      </div>
+    </div>
+    <n-space v-if="uiTheme === 'default' && globalStats.totalAccounts > 0" style="margin: 12px 0; flex-shrink: 0" :wrap="true">
       <n-tag>{{ globalStats.totalAccounts }} {{ t('dashboard.accounts') }}</n-tag>
       <n-tag v-if="globalStats.aiExhausted > 0" type="error">🤖 {{ globalStats.aiExhausted }}</n-tag>
       <n-tag v-if="globalStats.browserExhausted > 0" type="error">🖥️ {{ globalStats.browserExhausted }}</n-tag>
@@ -113,8 +120,17 @@ import apiClient from '../api/client';
 import type { DataTableColumns } from 'naive-ui';
 import { formatCN, formatCNShort } from '../utils/dateFormat';
 import CompactAccountCard from '../components/CompactAccountCard.vue';
+import { PeopleOutline, SparklesOutline, ConstructOutline, TimeOutline } from '@vicons/ionicons5';
+import { useUiTheme } from '../composables/useUiTheme';
 
 const { t } = useI18n();
+const { uiTheme } = useUiTheme();
+const summaryStats = computed(() => [
+  { label: t('dashboard.accounts'), value: globalStats.value.totalAccounts, icon: PeopleOutline },
+  { label: t('compactCard.aiNeurons'), value: formatCompact(globalStats.value.aiNeuronsTotal), icon: SparklesOutline, exhausted: globalStats.value.aiExhausted },
+  { label: t('compactCard.workersRequests'), value: formatCompact(globalStats.value.workersRequestsTotal), icon: ConstructOutline },
+  { label: t('compactCard.browserRender'), value: `${formatCompact(globalStats.value.browserRenderTotal)}s`, icon: TimeOutline, exhausted: globalStats.value.browserExhausted },
+]);
 
 const quotaStore = useQuotaStore();
 const searchQuery = ref('');

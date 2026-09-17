@@ -20,7 +20,8 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('api_token');
+  let token: string | null = null;
+  try { token = localStorage.getItem('api_token'); } catch { /* Send an unauthenticated request; let the server decide. */ }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -47,7 +48,7 @@ apiClient.interceptors.response.use(
     }
 
     if (error?.response?.status === 401 || (error?.response?.status === 403 && errObj?.code !== 'R2_NOT_ENABLED' && errObj?.code !== 10042)) {
-      localStorage.removeItem('api_token');
+      try { localStorage.removeItem('api_token'); } catch { /* Storage may be disabled. */ }
       window.dispatchEvent(new Event('auth-expired'));
     }
 

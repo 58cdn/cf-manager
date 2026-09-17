@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="theme" :locale="naiveLocale" :date-locale="naiveDateLocale">
+  <n-config-provider v-bind="uiConfig">
     <n-dialog-provider>
       <n-message-provider>
         <n-notification-provider>
@@ -10,7 +10,18 @@
             </div>
 
             <!-- 登录界面 -->
-            <div v-else-if="showLogin" style="display: flex; justify-content: center; align-items: center; height: 100vh; padding: 16px">
+            <div v-else-if="showLogin" class="login-page" style="display: flex; justify-content: center; align-items: center; height: 100vh; padding: 16px">
+              <div class="login-preferences">
+                <ThemeSelector />
+                <n-button quaternary circle :aria-label="t(isDark ? 'appearance.light' : 'appearance.dark')" @click="toggleTheme"><template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" /></template></n-button>
+                <n-dropdown trigger="click" :options="languageOptions" @select="handleLanguageChange"><n-button quaternary circle :aria-label="t('appearance.language')"><template #icon><n-icon :component="LanguageOutline" /></template></n-button></n-dropdown>
+              </div>
+              <div v-if="uiTheme === 'verdant'" class="login-brand">
+                <div class="brand-mark"><n-icon :component="GlobeOutline" :size="28" /></div>
+                <span class="brand-eyebrow">CF MANAGER</span>
+                <h1>{{ t('appearance.loginHeading') }}</h1>
+                <p>{{ t('appearance.loginDescription') }}</p>
+              </div>
               <n-card :title="t('app.title')" style="width: 400px; max-width: 100%">
                 <n-form @submit.prevent="handleLogin">
                   <n-form-item :label="t('app.apiSecret')">
@@ -22,31 +33,33 @@
             </div>
 
             <!-- Desktop Layout -->
-            <n-layout v-else-if="!isMobile" has-sider style="height: 100vh">
-              <n-layout-sider bordered :width="220" :collapsed-width="64" collapse-mode="width" :collapsed="collapsed">
-                <div style="padding: 16px; text-align: center; font-weight: bold; font-size: 18px">
+            <n-layout v-else-if="!isMobile" has-sider class="desktop-layout" style="height: 100vh">
+              <n-layout-sider bordered :width="uiTheme === 'verdant' ? 232 : 220" :collapsed-width="64" collapse-mode="width" :collapsed="collapsed">
+                <div class="sidebar-brand" style="padding: 16px; text-align: center; font-weight: bold; font-size: 18px">
                   {{ collapsed ? 'CF' : 'CF Manager' }}
                 </div>
                 <n-menu v-model:value="activeMenuKey" :options="menuOptions" :collapsed="collapsed" @update:value="handleMenuClick" />
               </n-layout-sider>
-              <n-layout>
-                <n-layout-header bordered style="height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px">
-                  <n-button quaternary circle @click="collapsed = !collapsed">
+              <n-layout class="workspace-layout">
+                <n-layout-header class="workspace-header" bordered style="height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px">
+                  <n-button quaternary circle :aria-label="t('appearance.toggleSidebar')" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
                     <template #icon><n-icon :component="MenuOutline" /></template>
                   </n-button>
+                  <span v-if="uiTheme === 'verdant'" class="current-section">{{ navItems.find(item => item.key === activeMenuKey)?.label }}</span>
                   <n-space>
+                    <ThemeSelector />
                     <n-dropdown trigger="click" :options="languageOptions" @select="handleLanguageChange">
-                      <n-button quaternary circle>
+                      <n-button quaternary circle :aria-label="t('appearance.language')">
                         <template #icon><n-icon :component="LanguageOutline" /></template>
                       </n-button>
                     </n-dropdown>
-                    <n-button quaternary circle @click="toggleTheme">
+                    <n-button quaternary circle :aria-label="t(isDark ? 'appearance.light' : 'appearance.dark')" @click="toggleTheme">
                       <template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" /></template>
                     </n-button>
                     <n-button v-if="isAuthenticated" quaternary size="small" @click="handleLogout">{{ t('app.logout') }}</n-button>
                   </n-space>
                 </n-layout-header>
-                <n-layout-content content-style="padding: 24px; height: 100%; box-sizing: border-box;" style="height: calc(100vh - 48px - 32px); overflow-y: auto">
+                <n-layout-content class="workspace-content" content-style="padding: 24px; height: 100%; box-sizing: border-box;" style="height: calc(100vh - 48px - 32px); overflow-y: auto">
                   <router-view />
                 </n-layout-content>
                 <n-layout-footer bordered style="height: 32px; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; font-size: 12px; color: #999">
@@ -64,47 +77,55 @@
 
               <!-- FAB Overlay -->
               <transition name="fab-overlay">
-                <div v-if="fabOpen" class="fab-overlay" @click="fabOpen = false" />
+                <div v-if="fabOpen" class="fab-overlay" @click="closeNavigation" />
               </transition>
 
               <!-- FAB Panel -->
               <transition name="fab-panel">
-                <div v-if="fabOpen" class="fab-panel" :class="{ 'fab-panel--dark': isDark }">
+                <div v-if="fabOpen" id="mobile-navigation" ref="navigationPanel" role="dialog" aria-modal="true" :aria-label="t('appearance.navigation')" class="fab-panel" :class="{ 'fab-panel--dark': isDark }" @keydown="onNavigationKeydown">
                   <div class="fab-panel-header">
                     <span class="fab-panel-title">CF Manager</span>
                     <div class="fab-panel-actions">
                       <n-dropdown trigger="click" :options="languageOptions" placement="bottom-end" @select="handleLanguageChange">
-                        <n-button circle size="small" quaternary>
+                        <n-button circle size="small" quaternary :aria-label="t('appearance.language')">
                           <template #icon><n-icon :component="LanguageOutline" :size="16" /></template>
                         </n-button>
                       </n-dropdown>
-                      <n-button circle size="small" quaternary @click="toggleTheme">
+                      <n-button circle size="small" quaternary :aria-label="t(isDark ? 'appearance.light' : 'appearance.dark')" @click="toggleTheme">
                         <template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" :size="16" /></template>
                       </n-button>
-                      <n-button circle size="small" quaternary type="error" @click="handleLogout">
+                      <n-button circle size="small" quaternary type="error" :aria-label="t('app.logout')" @click="handleLogout">
                         <template #icon><n-icon :component="LogOutOutline" :size="16" /></template>
                       </n-button>
                     </div>
                   </div>
+                  <div class="mobile-theme-row"><ThemeSelector /><n-button quaternary size="small" @click="closeNavigation">{{ t('common.close') }}</n-button></div>
                   <div class="fab-panel-body">
                     <div class="fab-grid">
-                      <div
+                      <button
                         v-for="item in navItems"
                         :key="item.key"
                         class="fab-item"
+                        type="button"
+                        :aria-current="activeMenuKey === item.key ? 'page' : undefined"
                         :class="{ 'fab-item--active': activeMenuKey === item.key }"
-                        @click="handleMenuClick(item.key); fabOpen = false"
+                        @click="handleMenuClick(item.key); closeNavigation()"
                       >
                         <n-icon :component="item.iconComponent" :size="22" />
                         <span class="fab-item-label">{{ item.label }}</span>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
               </transition>
 
               <!-- FAB Button -->
-              <div
+              <button
+                ref="navigationTrigger"
+                type="button"
+                :aria-label="t(fabOpen ? 'common.close' : 'appearance.navigation')"
+                :aria-expanded="fabOpen"
+                aria-controls="mobile-navigation"
                 class="fab-btn"
                 :class="{ 'fab-btn--open': fabOpen, 'fab-btn--dragging': fabDragging, 'fab-btn--dark': isDark }"
                 :style="fabStyle"
@@ -114,7 +135,7 @@
                 @touchend.passive="onFabTouchEnd"
               >
                 <n-icon :component="fabOpen ? CloseOutline : GridOutline" :size="24" />
-              </div>
+              </button>
             </div>
           </n-loading-bar-provider>
         </n-notification-provider>
@@ -124,10 +145,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, h, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, h, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { darkTheme, zhCN, dateZhCN, enUS, dateEnUS } from 'naive-ui';
 import type { Component } from 'vue';
 import { NIcon } from 'naive-ui';
 import {
@@ -138,22 +158,17 @@ import {
   GitBranchOutline, LanguageOutline,
 } from '@vicons/ionicons5';
 import apiClient from './api/client';
-import { message as globalMessage, setDiscreteTheme } from './utils/discreteApi';
+import { message as globalMessage } from './utils/discreteApi';
+import { uiConfig, useUiTheme } from './composables/useUiTheme';
+import ThemeSelector from './components/ThemeSelector.vue';
 import { saveLocale, type Locale } from './i18n';
 
 const { t, locale } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const collapsed = ref(false);
-const storedDark = localStorage.getItem('darkMode');
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const isDark = ref(storedDark !== null ? storedDark === 'true' : prefersDark);
+const { uiTheme, isDark, toggleDark: toggleTheme } = useUiTheme();
 const activeMenuKey = ref(route.name as string);
-const theme = computed(() => isDark.value ? darkTheme : null);
-
-// Naive UI locale
-const naiveLocale = computed(() => locale.value === 'zh-CN' ? zhCN : enUS);
-const naiveDateLocale = computed(() => locale.value === 'zh-CN' ? dateZhCN : dateEnUS);
 
 // Language options
 const languageOptions = computed(() => [
@@ -166,7 +181,8 @@ function handleLanguageChange(key: string) {
   saveLocale(key as Locale);
 }
 
-const isAuthenticated = ref(!!localStorage.getItem('api_token'));
+const isAuthenticated = ref(false);
+try { isAuthenticated.value = !!localStorage.getItem('api_token'); } catch { /* Login remains accessible when browser storage is disabled. */ }
 const showLogin = ref(false);
 const authChecking = ref(true);
 const loginSecret = ref('');
@@ -181,6 +197,21 @@ function applyVersion(data: any) {
 
 const isMobile = ref(window.innerWidth <= 768);
 const fabOpen = ref(false);
+const navigationTrigger = ref<HTMLButtonElement>();
+const navigationPanel = ref<HTMLDivElement>();
+watch(fabOpen, async (open) => {
+  if (open) { await nextTick(); navigationPanel.value?.querySelector<HTMLElement>('button, select')?.focus(); }
+});
+function closeNavigation() { fabOpen.value = false; navigationTrigger.value?.focus(); }
+function onNavigationKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') { event.preventDefault(); closeNavigation(); }
+  if (event.key !== 'Tab') return;
+  const items = navigationPanel.value?.querySelectorAll<HTMLElement>('button:not([disabled]), select');
+  if (!items?.length) return;
+  const first = items[0]!; const last = items[items.length - 1]!;
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 const fabDragging = ref(false);
 const fabPos = reactive({ x: -1, y: -1 });
 let dragStartX = 0, dragStartY = 0, dragStartPosX = 0, dragStartPosY = 0;
@@ -261,7 +292,6 @@ function onAuthExpired() {
 }
 
 onMounted(async () => {
-  applyTheme();
   initFabPos();
   window.addEventListener('resize', onResize);
   window.addEventListener('auth-expired', onAuthExpired);
@@ -293,7 +323,7 @@ async function handleLogin() {
     isAuthenticated.value = true;
     showLogin.value = false;
   } catch {
-    localStorage.removeItem('api_token');
+    try { localStorage.removeItem('api_token'); } catch { /* No stored session to clear. */ }
     isAuthenticated.value = false;
     globalMessage.error(t('app.invalidApiSecret'));
   } finally {
@@ -302,7 +332,8 @@ async function handleLogin() {
 }
 
 function handleLogout() {
-  localStorage.removeItem('api_token');
+  try { localStorage.removeItem('api_token'); } catch { /* No stored session to clear. */ }
+  fabOpen.value = false;
   isAuthenticated.value = false;
   showLogin.value = true;
   loginSecret.value = '';
@@ -333,20 +364,14 @@ function handleMenuClick(key: string) {
   router.push({ name: key }).catch(() => {});
 }
 
-function toggleTheme() {
-  isDark.value = !isDark.value;
-  applyTheme();
-}
-
-function applyTheme() {
-  const dark = isDark.value;
-  document.documentElement.classList.toggle('app-dark', dark);
-  localStorage.setItem('darkMode', String(dark));
-  setDiscreteTheme(dark);
-}
 </script>
 
 <style scoped>
+.login-preferences { position: absolute; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
+.mobile-theme-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; }
+.fab-item { border: 0; background: transparent; color: inherit; font: inherit; }
+.fab-btn { padding: 0; border: 0; font: inherit; }
+.fab-item:focus-visible, .fab-btn:focus-visible { outline: 2px solid var(--ui-primary, #18a058); outline-offset: 2px; }
 /* Mobile Layout */
 .mobile-layout {
   height: 100vh;
