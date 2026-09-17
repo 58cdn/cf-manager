@@ -9,6 +9,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   encryptionKey: process.env.ENCRYPTION_KEY || 'feiyu',
   apiSecret: process.env.API_SECRET || '',
+  unlockKey: process.env.UNLOCK_KEY || '',
   authLockout: lockoutPolicy(process.env),
   authTrustedProxies: process.env.AUTH_TRUSTED_PROXIES || '',
   dbPath: process.env.DB_PATH || path.join(__dirname, '..', 'data', 'cf-manager.db'),

@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { Env } from '../src/types';
 import { authMiddleware } from '../src/middleware/auth';
+import unlockRouter from '../src/routes/unlock';
 
 // Vitest 2 predates node:sqlite; load the built-in through Node's module loader.
 const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
@@ -26,8 +27,9 @@ beforeEach(() => {
       };
     } };
   } };
-  env = { DB: binding, API_SECRET: randomUUID() } as unknown as Env;
+  env = { DB: binding, API_SECRET: randomUUID(), UNLOCK_KEY: randomUUID() } as unknown as Env;
   app = new Hono<{ Bindings: Env }>();
+  app.route('/admin/unlock', unlockRouter);
   app.use('*', authMiddleware);
   app.get('*', c => c.json({ ok: true }));
 });
@@ -86,4 +88,44 @@ it('fails closed when the database or migration is missing', async () => {
   expect((await request(env.API_SECRET)).status).toBe(500);
   env.DB = undefined as unknown as Env['DB'];
   expect((await request(env.API_SECRET)).status).toBe(500);
+});
+
+const unlock = (key: string, ip = '192.0.2.1', method = 'GET') => app.request(`/admin/unlock/${key}`, {
+  method, headers: { ...(ip ? { 'CF-Connecting-IP': ip } : {}), 'X-Forwarded-For': '192.0.2.99' },
+}, env);
+
+it('unlocks the current edge IP only and still requires authentication', async () => {
+  for (const ip of ['192.0.2.1', '192.0.2.2']) {
+    for (let i = 0; i < 3; i++) await request('wrong', ip);
+  }
+  expect((await unlock('wrong')).status).toBe(403);
+  expect((await request(env.API_SECRET)).status).toBe(429);
+  const response = await unlock(env.UNLOCK_KEY!);
+  expect(response.status).toBe(303);
+  expect(response.headers.get('Location')).toBe('/admin/');
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+  expect((await request()).status).toBe(401);
+  expect((await request(env.API_SECRET, '192.0.2.2')).status).toBe(429);
+  expect((await request('wrong')).status).toBe(403);
+  expect((await request(env.API_SECRET)).status).toBe(200);
+});
+
+it('rejects missing keys, missing edge IP and non-GET unlock requests', async () => {
+  for (let i = 0; i < 3; i++) await request('wrong');
+  expect((await unlock(env.UNLOCK_KEY!, '', 'GET')).status).toBe(400);
+  expect((await unlock(env.UNLOCK_KEY!, '192.0.2.1', 'HEAD')).status).toBe(405);
+  expect((await unlock(env.UNLOCK_KEY!, '192.0.2.1', 'POST')).status).toBe(404);
+  env.UNLOCK_KEY = '';
+  expect((await unlock('wrong')).status).toBe(403);
+  expect((await request(env.API_SECRET)).status).toBe(429);
+});
+
+it('fails closed on unlock database errors without logging the secret-bearing path', async () => {
+  const log = vi.spyOn(console, 'error');
+  db.exec('DROP TABLE auth_lockouts');
+  const response = await unlock(env.UNLOCK_KEY!);
+  expect(response.status).toBe(503);
+  expect(await response.text()).toBe('Unlock unavailable');
+  expect(log).not.toHaveBeenCalled();
 });

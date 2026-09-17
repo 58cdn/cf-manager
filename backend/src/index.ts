@@ -6,6 +6,7 @@ import fs from 'fs';
 import { config } from './config';
 import { initDb } from './db';
 import { authMiddleware } from './middleware/auth';
+import unlockRouter from './routes/unlock';
 import { errorHandler } from './middleware/errorHandler';
 import { v1ErrorHandler } from './middleware/v1ErrorHandler';
 import { responseWrapper } from './middleware/responseWrapper';
@@ -39,6 +40,9 @@ const app = express();
 if (config.authTrustedProxies) {
   app.set('trust proxy', config.authTrustedProxies.split(',').map(value => value.trim()));
 }
+
+// Handle secret-bearing URLs before body parsers, logging, authentication and SPA fallback.
+app.use('/admin/unlock', unlockRouter);
 
 app.use(cors({
   origin: true, // Allow all origins (or specify your frontend URL)

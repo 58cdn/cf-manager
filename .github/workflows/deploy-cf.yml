@@ -56,6 +56,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      UNLOCK_KEY: ${{ secrets.UNLOCK_KEY }}
     # 非交互 CI 下，wrangler 必须通过环境变量认证。
     # 敏感输入绝不能放在 job 级 env —— 否则每个步骤的「env:」头都会把明文打印到日志。
     # 改为第一步就注册脱敏并写入 $GITHUB_ENV，后续步骤一律用 $VAR 引用（日志中均为 ***）。

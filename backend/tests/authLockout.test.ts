@@ -5,12 +5,14 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { authMiddleware } from '../src/middleware/auth';
+import unlockRouter from '../src/routes/unlock';
 import { lockoutPolicy, retentionMs } from '../src/services/authLockout';
 
-const state = vi.hoisted(() => ({ db: undefined as unknown, secret: '', enabled: true }));
+const state = vi.hoisted(() => ({ db: undefined as unknown, secret: '', unlockKey: '', enabled: true }));
 vi.mock('../src/db', () => ({ getDb: () => state.db }));
 vi.mock('../src/config', () => ({ config: {
   get apiSecret() { return state.secret; },
+  get unlockKey() { return state.unlockKey; },
   get authLockout() { return { enabled: state.enabled, attempts: 3, minutes: 5, repeatMinutes: 10 }; },
 } }));
 
@@ -22,6 +24,7 @@ beforeEach(() => {
   db.exec(readFileSync(new URL('../../worker/src/db/migrations/0010_auth_lockouts.sql', import.meta.url), 'utf8'));
   state.db = db;
   state.secret = randomUUID();
+  state.unlockKey = randomUUID();
   state.enabled = true;
   now = 1_800_000_000_000;
   vi.spyOn(Date, 'now').mockImplementation(() => now);
@@ -39,6 +42,7 @@ afterEach(async () => {
 async function client(trusted = false) {
   const app = express();
   if (trusted) app.set('trust proxy', ['loopback']);
+  app.use('/admin/unlock', unlockRouter);
   app.use(authMiddleware);
   app.use((_req, res) => res.json({ ok: true }));
   server = app.listen(0, '127.0.0.1');
@@ -103,6 +107,59 @@ describe('Express lockout', () => {
     expect((await request(state.secret)).status).toBe(429);
     expect(db.prepare('SELECT failures FROM auth_lockouts').get()).toEqual({ failures: 3 });
   });
+});
+
+async function unlock(key: string, ip = '192.0.2.1', method = 'GET') {
+  const port = (server!.address() as { port: number }).port;
+  return fetch(`http://127.0.0.1:${port}/admin/unlock/${key}`, {
+    method, headers: { 'X-Forwarded-For': ip }, redirect: 'manual',
+  });
+}
+
+it('unlocks only the requesting IP and still requires authentication', async () => {
+  const request = await client(true);
+  for (const ip of ['192.0.2.1', '192.0.2.2']) {
+    for (let i = 0; i < 3; i++) await request('wrong', ip);
+  }
+  expect((await unlock('wrong')).status).toBe(403);
+  expect((await request(state.secret)).status).toBe(429);
+  const response = await unlock(state.unlockKey);
+  expect(response.status).toBe(303);
+  expect(response.headers.get('Location')).toBe('/');
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+  expect((await request()).status).toBe(401);
+  expect((await request(state.secret, '192.0.2.2')).status).toBe(429);
+  expect((await request('wrong')).status).toBe(403);
+  expect((await request(state.secret)).status).toBe(200);
+});
+
+it('keeps unlock disabled without a key and does not unlock via HEAD or POST', async () => {
+  const request = await client();
+  for (let i = 0; i < 3; i++) await request('wrong');
+  expect((await unlock(state.unlockKey, '192.0.2.1', 'HEAD')).status).toBe(405);
+  expect((await unlock(state.unlockKey, '192.0.2.1', 'POST')).status).toBe(404);
+  state.unlockKey = '';
+  expect((await unlock('wrong')).status).toBe(403);
+  expect((await request(state.secret)).status).toBe(429);
+});
+
+it('ignores forged forwarding IPs when unlocking without trusted proxies', async () => {
+  const request = await client();
+  for (let i = 0; i < 3; i++) await request('wrong');
+  expect((await unlock(state.unlockKey, '192.0.2.99')).status).toBe(303);
+  expect((await request(state.secret)).status).toBe(200);
+});
+
+it('handles malformed paths and database errors without exposing the unlock URL', async () => {
+  await client();
+  const malformed = await unlock('%ZZ');
+  expect(malformed.status).toBe(400);
+  expect(await malformed.text()).toBe('Invalid unlock request');
+  db.exec('DROP TABLE auth_lockouts');
+  const unavailable = await unlock(state.unlockKey);
+  expect(unavailable.status).toBe(503);
+  expect(await unavailable.text()).toBe('Unlock unavailable');
 });
 
 it('ignores forged forwarding headers by default', async () => {
