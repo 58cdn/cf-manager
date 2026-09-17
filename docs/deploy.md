@@ -487,3 +487,7 @@ cd worker && npm run deploy
 Free 计划的 10ms CPU 限制可能导致复杂操作（如批量部署）失败。解决方案：
 - 升级到 Workers Paid 计划（$5/月）
 - 减少单次请求的并发账户数量
+
+## API Secret 安全配置
+
+按 IP 的登录失败锁定默认开启；Worker 升级需先执行数据库迁移，Docker 反向代理需显式配置可信代理地址。配置、升级步骤和安全边界见 [API Secret 防爆破](auth-lockout.md)。

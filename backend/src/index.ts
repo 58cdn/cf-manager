@@ -36,6 +36,9 @@ import { getEnabledCatalogSources } from './models/catalogSource';
 import { refreshCatalogSource } from './routes/store';
 
 const app = express();
+if (config.authTrustedProxies) {
+  app.set('trust proxy', config.authTrustedProxies.split(',').map(value => value.trim()));
+}
 
 app.use(cors({
   origin: true, // Allow all origins (or specify your frontend URL)

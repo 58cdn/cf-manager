@@ -61,7 +61,8 @@
     "logout": "退出",
     "apiSecret": "API Secret",
     "enterApiSecret": "输入 API Secret",
-    "invalidApiSecret": "API Secret 不正确"
+    "invalidApiSecret": "API Secret 不正确",
+    "authLocked": "错误次数过多，请在 {seconds} 秒后重试。"
   },
   "menu": {
     "dashboard": "仪表盘",
