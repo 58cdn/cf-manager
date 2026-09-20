@@ -1,4 +1,12 @@
 {
+  "appearance": {
+    "theme": "Theme style", "default": "Default", "verdant": "Verdant",
+    "light": "Switch to light mode", "dark": "Switch to dark mode", "language": "Language",
+    "toggleSidebar": "Toggle sidebar", "navigation": "Navigation",
+    "sessionOnly": "Not saved", "storageUnavailable": "Browser storage is unavailable. Appearance changes apply only to this session.",
+    "loginHeading": "Your cloud, in focus.", "loginDescription": "Manage your accounts, services and AI workloads in one place.",
+    "exhaustedAccounts": "Quota exhausted: {count} accounts"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",
