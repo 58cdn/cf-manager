@@ -11,6 +11,7 @@ import { deployWorker } from '../services/assetsDeploy';
 import { fetchScriptSafely } from '../services/ssrfGuard';
 import { varsToBindings, resolveManualBindings, buildPagesConfigsFromInput, ManualVarInput, ManualBindingInput } from '../services/bindings';
 import { getWorkerConfig, getPagesConfig, applyWorkerConfigDiff } from '../services/workerConfig';
+import { normalizeCronExpressions } from '../utils/cronValidation';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -108,10 +109,12 @@ app.get('/:accountId/workers/:name/schedules', async (c) => {
 
 app.put('/:accountId/workers/:name/schedules', async (c) => {
   const account = await requireAccount(c);
-  const body = await c.req.json();
-  if (!Array.isArray(body.crons)) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'crons must be an array' } }, 400);
+  const parsed = await c.req.json().catch(() => null);
+  const body = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
+  const normalizedCrons = normalizeCronExpressions(body.crons);
+  if (!normalizedCrons) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'crons must be an array of valid five-field cron expressions' } }, 400);
   const result = await cfFetch(account, `/accounts/${account.account_id}/workers/scripts/${c.req.param('name')}/schedules`, c.env.ENCRYPTION_KEY, {
-    method: 'PUT', body: JSON.stringify(body.crons.map((cron: string) => ({ cron }))),
+    method: 'PUT', body: JSON.stringify(normalizedCrons.map((cron) => ({ cron }))),
   });
   return c.json(result);
 });
