@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.2] - 2026-10-14
+
+### 🔧 CI
+
+- **部署工作流支持 Cloudflare API Token（closes #40）**：新增 `deploy-cf-token.yml`（Environment Secrets 方式）与 `actions/deploy-cf/cf-auth.sh`，composite action 的5 处 REST 调用改为按凭据自动择一（`CLOUDFLARE_API_TOKEN` → Bearer，否则回退 legacy `X-Auth-*`）。seed 按 `accounts.auth_type` 的 CHECK 约束分别写入 `api_token` 或 `api_key + email`；`demo_mode` 在 token 场景改按 `accounts.account_id` 匹配（原依赖邮箱，token 无邮箱）。未配置 Token 时行为与改动前完全一致。
+- **`deploy-cf.yml` 支持凭据二选一**：`cf_api_token`（推荐）或 `cf_global_key` + `cf_email`（legacy），都未填写时在第 2 步 `exit 1`，避免后续步骤带着空凭据发出必然 401 的请求。
+- **部署链路三个隐患修复**：输入不再直接插值进 shell 控制流（改用 `$VAR` 引用，消除注入面）；仅在非空时导出认证变量，避免 wrangler 读到空值；D1 ID 解析失败时提前中止，不再把 `database_id = ""` 静默写入 `wrangler.toml`。
+- **文档补充 API Token 部署方式与权限清单**：`README.md` / `README.zh-CN.md` / `docs/deploy.md` 改以 API Token 为推荐路径，新增 5 个 Account 级权限的用途对照表、官方模板 `Edit Cloudflare Workers` 建议，以及 `full_wipe` 种子账户的 DNS 权限限制说明。
+- 无数据库变更，无需迁移。
+
 ## [2.4.1] - 2026-09-29
 
 ### 🐞 修复与优化
