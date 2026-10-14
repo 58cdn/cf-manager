@@ -64,22 +64,48 @@
 
 No tools to install—everything happens in the browser.
 
-**Recommended: Use the Secrets version (secrets never leak into logs)**
+**Recommended: Use the API Token workflow (Cloudflare's officially preferred credential)**
 
 1. **Fork this repo** → click Fork in the top-right corner
-2. Go to your fork → **Settings** → **Environments** → **New environment**, create an environment (e.g. `production`), and add 4 secrets inside it:
-   - `CF_GLOBAL_KEY`: Cloudflare Global API Key (required for deployment; scoped API Token is not supported by this workflow)
+2. Go to your fork → **Settings** → **Environments** → **New environment**, create an environment (e.g. `production`), and add 3 secrets inside it:
+   - `CF_API_TOKEN`: Cloudflare API Token (required Account-level permissions listed below)
+   - `ENCRYPTION_KEY`: encryption key (use a strong random string, at least 16 chars)
+   - `API_SECRET`: management UI access password (use a strong random string, avoid weak passwords)
+3. Go to **Actions** → select **Deploy to Cloudflare Pages (API Token)** → **Run workflow**, enter the environment name such as `production`
+4. Wait for deployment to finish, then visit `https://cfmgr.pages.dev/admin/`
+
+**API Token permissions** (all Account-level)
+
+| Permission | Used by |
+|---|---|
+| `Account.D1:Edit` | create/delete the D1 database, run schema + migrations |
+| `Account.Workers KV Storage:Edit` | create/delete the KV namespace |
+| `Account.Cloudflare Pages:Edit` | create the Pages project, `secret put`, query subdomain |
+| `Account.Workers Scripts:Edit` | upload the Pages Functions bundle |
+| `Account.Account Settings:Read` | `wrangler whoami` resolving the account |
+
+> No Zone-level permission is needed for deployment. Tip: pick the **`Edit Cloudflare Workers`** template, then add `D1:Edit` and `Workers KV Storage:Edit`.
+> See the [deployment docs](docs/deploy.md#21-api-token-权限详解) for the full breakdown, including what to do when using `full_wipe`.
+
+> Why API Token? Cloudflare's own docs page for the Global API Key is now titled *"Get Global API key (legacy)"*, and Cloudflare states new integrations should use API Tokens instead. The Global API Key also carries the account owner's full permissions, so leaking it endangers every asset on the account.
+
+**Alternative: the Global API Key workflow (legacy)**
+
+1. Go to your fork → **Settings** → **Environments** → **New environment**, create an environment (e.g. `production`), and add 4 secrets inside it:
+   - `CF_GLOBAL_KEY`: Cloudflare Global API Key (legacy credential, full account permissions)
    - `CF_EMAIL`: Cloudflare account email
    - `ENCRYPTION_KEY`: encryption key (use a strong random string, at least 16 chars)
    - `API_SECRET`: management UI access password (use a strong random string, avoid weak passwords)
-3. Go to **Actions** → select **Deploy to Cloudflare Pages (Secrets)** → **Run workflow**, enter the environment name such as `production`
-4. Wait for deployment to finish, then visit `https://cfmgr.pages.dev/admin/`
+2. Go to **Actions** → select **Deploy to Cloudflare Pages (Secrets)** → **Run workflow**, enter the environment name such as `production`
+3. Wait for deployment to finish, then visit `https://cfmgr.pages.dev/admin/`
 
 > ⚠️ Important: Bind only your own separate business/test accounts. Do not bulk-attach accounts to automatically split AI quotas—this violates the Cloudflare service agreement.
 
 > For multiple accounts, create multiple Environments with separate secrets, then enter the corresponding environment name at deploy time.
 
 > Get Cloudflare Global API Key: [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → API Keys → Global API Key → View
+
+> Create an API Token: [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → API Tokens → Create Token
 
 </details>
 

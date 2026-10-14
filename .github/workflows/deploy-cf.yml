@@ -1,18 +1,27 @@
 name: Deploy to Cloudflare Pages
 
 # 入口工作流 —— 直接输入 Cloudflare 凭据，脱敏后调用 composite action
-# 适用于：无 GitHub Environments 配置、手动触发时直接传 Key 的场景
+# 适用于：无 GitHub Environments 配置、手动触发时直接传Key 的场景
+#
+# 凭据二选一（都填时优先使用 API Token）：
+#   1) cf_api_token                — Cloudflare API Token（推荐）
+#   2) cf_global_key + cf_email    — Global API Key（legacy，二者必须同时填写）
+# 两者都未填写将在第一个步骤立即终止。
 
 on:
   workflow_dispatch:
     inputs:
+      cf_api_token:
+        description: 'Cloudflare API Token（与 cf_global_key 二选一；推荐，官方已把 Global API Key 标记为 legacy）'
+        required: false
+        type: string
       cf_global_key:
-        description: 'Cloudflare Global API Key（仅在本脚本内使用，绝不打印到日志）'
-        required: true
+        description: 'Cloudflare Global API Key（与 cf_api_token 二选一；需同时填写 cf_email）'
+        required: false
         type: string
       cf_email:
-        description: 'Cloudflare 账号邮箱（仅在本脚本内使用，绝不打印到日志）'
-        required: true
+        description: 'Cloudflare 账号邮箱（使用 Global API Key 时必填，仅在本脚本内使用，绝不打印到日志）'
+        required: false
         type: string
       project_name:
         description: 'Pages 项目名称'
@@ -58,22 +67,44 @@ jobs:
     runs-on: ubuntu-latest
     # 非交互 CI 下，wrangler 必须通过环境变量认证。
     # 敏感输入绝不能放在 job 级 env —— 否则每个步骤的「env:」头都会把明文打印到日志。
-    # 改为第一步就注册脱敏并写入 $GITHUB_ENV，后续步骤一律用 $VAR 引用（日志中均为 ***）。
+    # 拆成两步：第一步注册脱敏并写入 $GITHUB_ENV（本步骤脚本正文必然含明文，
+    # GitHub 在执行前会回显脚本，这是 inputs 唯一无法避免的暴露面）；
+    # 第二步起一律用 $VAR 引用，日志中均为 ***，也不会把输入插值进脚本正文。
     steps:
       # checkout 必须在调用本地 composite action 之前执行，否则 runner 找不到 action.yml
       - uses: actions/checkout@v5
 
       - name: Mask secrets and export to env
         run: |
+          echo "::add-mask::${{ github.event.inputs.cf_api_token }}"
           echo "::add-mask::${{ github.event.inputs.cf_global_key }}"
           echo "::add-mask::${{ github.event.inputs.cf_email }}"
           echo "::add-mask::${{ github.event.inputs.encryption_key }}"
           echo "::add-mask::${{ github.event.inputs.api_secret }}"
-          echo "CLOUDFLARE_GLOBAL_KEY=${{ github.event.inputs.cf_global_key }}" >> $GITHUB_ENV
-          echo "CLOUDFLARE_API_KEY=${{ github.event.inputs.cf_global_key }}" >> $GITHUB_ENV
-          echo "CLOUDFLARE_EMAIL=${{ github.event.inputs.cf_email }}" >> $GITHUB_ENV
+          # 仅在非空时导出：避免 wrangler 读到「已设置但为空」的 CLOUDFLARE_API_TOKEN
+          [ -n "${{ github.event.inputs.cf_api_token }}" ] && echo "CLOUDFLARE_API_TOKEN=${{ github.event.inputs.cf_api_token }}" >> $GITHUB_ENV
+          [ -n "${{ github.event.inputs.cf_global_key }}" ] && echo "CLOUDFLARE_GLOBAL_KEY=${{ github.event.inputs.cf_global_key }}" >> $GITHUB_ENV
+          [ -n "${{ github.event.inputs.cf_global_key }}" ] && echo "CLOUDFLARE_API_KEY=${{ github.event.inputs.cf_global_key }}" >> $GITHUB_ENV
+          [ -n "${{ github.event.inputs.cf_email }}" ] && echo "CLOUDFLARE_EMAIL=${{ github.event.inputs.cf_email }}" >> $GITHUB_ENV
           echo "ENCRYPTION_KEY=${{ github.event.inputs.encryption_key }}" >> $GITHUB_ENV
           echo "API_SECRET=${{ github.event.inputs.api_secret }}" >> $GITHUB_ENV
+
+      - name: Validate credentials
+        run: |
+          # 凭据二选一校验：Global API Key + Email（legacy），或 API Token（推荐）。
+          # 全部用 $VAR 引用（已脱敏），不把输入直接插值进脚本正文。
+          # 在进入 Deploy 前失败，避免后续步骤带着空凭据发出必然 401 的请求。
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            if [ -n "$CLOUDFLARE_GLOBAL_KEY" ] || [ -n "$CLOUDFLARE_EMAIL" ]; then
+              echo "::warning::同时填写了 API Token 与 Global API Key/邮箱，将优先使用 API Token"
+            fi
+          elif [ -z "$CLOUDFLARE_GLOBAL_KEY" ] || [ -z "$CLOUDFLARE_EMAIL" ]; then
+            echo "::error::必须填写以下任一凭据组合："
+            echo "::error::  1) cf_api_token — Cloudflare API Token（推荐）"
+            echo "::error::  2) cf_global_key + cf_email — Global API Key（legacy，二者必须同时填写）"
+            exit 1
+          fi
+          echo "凭据校验通过（认证方式：$([ -n "$CLOUDFLARE_API_TOKEN" ] && echo 'API Token' || echo 'Global API Key')）"
 
       - name: Deploy
         uses: ./.github/actions/deploy-cf
