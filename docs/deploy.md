@@ -17,7 +17,7 @@ CF Manager 支持三种部署方式。推荐使用 **Fork 一键部署**，最�
 ### 前置要求
 
 - 一个 GitHub 账号
-- 一个 Cloudflare 账号（获取 Global API Key）
+- 一个 Cloudflare 账号（推荐创建 API Token；也可退回 Global API Key）
 
 ### 部署步骤
 
@@ -25,24 +25,90 @@ CF Manager 支持三种部署方式。推荐使用 **Fork 一键部署**，最�
 
 点击本仓库右上角 **Fork** 按钮，将项目 Fork 到你自己的 GitHub 账号下。
 
-#### 2. 获取 Cloudflare Global API Key
+#### 2. 获取 Cloudflare 凭据
+
+**推荐：API Token**（Cloudflare 官方文档已将 Global API Key 标记为 legacy，明确建议新集成改用 API Token）
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → **API Tokens** → **Create Token**
+2. 授予以下Account 级权限（按需最小化，缺权限会在对应步骤失败）：
+
+| 权限 | 用途 |
+|---|---|
+| `D1:Edit` | 创建 / 删除 D1 数据库 |
+| `KV Storage:Edit` | 创建 / 删除 KV 命名空间 |
+| `Pages:Edit` | 创建 Pages 项目、配置 secret、部署 |
+| `Workers Scripts:Edit` | 部署 Worker 产物 |
+| `Account Settings:Read` | `wrangler whoami` 读取账户信息 |
+
+**备选：Global API Key（legacy）**
 
 1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens)
 2. **API Keys** → **Global API Key** → **View**
 3. 记录你的 API Key 和账号邮箱，稍后在运行 Action 时填入
 
+#### 2.1 API Token 权限详解
+
+部署 Token 与「在管理界面里添加 Cloudflare 账户」用的 Token 是**两回事**：
+
+| | 用途 | 权限范围 |
+|---|---|---|
+| **部署 Token** | 只用于本工作流跑 CI（建 D1 / KV / Pages 项目、部署） | 只需下方 4 项 |
+| **运行时账户 Token** | 在管理界面添加 Cloudflare 账户后日常管理 DNS / AI / 存储等 | 见 [账户认证说明](account-auth.md) 的完整清单 |
+
+**部署所需的最小权限（全部为 Account 级）**
+
+在 `Create Custom Token` 中按需勾选：
+
+| 权限 | 对应部署步骤 | 缺失时的表现 |
+|---|---|---|
+| `Account.D1:Edit` | 创建/删除 D1 数据库、执行 schema 与迁移 SQL | `Setup D1 database` 步骤 401 |
+| `Account.Workers KV Storage:Edit` | 创建/删除 KV 命名空间 | `Setup KV namespace` 步骤 401 |
+| `Account.Cloudflare Pages:Edit` | 创建 Pages 项目、`secret put`、查询 subdomain | `Create Pages project` 或 `Deploy` 步骤 401 |
+| `Account.Workers Scripts:Edit` | 上传 Pages Functions 的 Worker 产物 | `Deploy to Cloudflare Pages` 步骤失败 |
+| `Account.Account Settings:Read` | `wrangler whoami` 解析账户信息 | Account ID 解析为空，D1/KV 操作失败 |
+
+> Cloudflare 的权限体系中 `Edit` 已包含同组的 `Read`，因此「查询 D1 列表」「查询 KV 列表」不需要单独勾 Read 类权限。
+> 权限项名称以 Dashboard 界面为准，不同版本界面文案可能有细微差异（如 `Cloudflare Pages` / `Pages`）。
+
+**更省事的做法**：在 `Create Token` 的 `Use template` 中选择 **`Edit Cloudflare Workers`** 模板，它已覆盖上表绝大部分权限；再补勾 `D1:Edit` 与 `Workers KV Storage:Edit` 即可。
+
+**资源范围（Resources）**
+
+- `Account Resources`：选 `All accounts` 或指定账户（多账户部署时建议逐个 Token 分开配置）
+- `Zone Resources`：**部署流程不需要任何 Zone 级权限**（只操作账户级资源）
+
+**关于 `full_wipe` 与 DNS 功能**
+
+勾选 `full_wipe` 时，工作流会把部署凭据作为一个名为 `Deploy Account` 的账户写入 D1，并启用 `ai,workers,browser_render,dns,storage` 功能。由于上表不含 Zone 级权限，**这个账户的 DNS 功能实际不可用**。如需该账户也能管理 DNS，请额外授予 `Zone.Zone:Read` 与 `Zone.DNS:Edit`，或在部署后到管理界面手动关闭该账户的 DNS 功能。
+
 #### 3. 运行部署 Action
 
-有两种 Action 可选，**推荐使用 Secrets 版本**（更安全，敏感信息不会出现在日志中）。
+三种 Action 可选，**推荐使用 API Token 版本**（官方推荐凭据，可精确限定权限）。
 
-**方式一：Secrets 版本（推荐）**
+**方式一：API Token 版本（推荐）**
 
 1. 进入 Fork 仓库 → **Settings** → **Environments** → **New environment**，创建一个环境（如 `production`）
 2. 点击刚创建的环境 → **Environment secrets** → **Add secret**，依次添加：
 
 | Secret 名称 | 说明 |
 |---|---|
-| `CF_GLOBAL_KEY` | Cloudflare Global API Key |
+| `CF_API_TOKEN` | Cloudflare API Token |
+| `ENCRYPTION_KEY` | 加密密钥（可填 `cfmgrbest`） |
+| `API_SECRET` | 访问密码（可填 `cfmgrbest`） |
+
+3. 进入 **Actions** 标签 → 左侧选 **Deploy to Cloudflare Pages (API Token)**
+4. 点击 **Run workflow**，在 `environment` 输入环境名称（如 `production`），其他参数保持默认，点击绿色按钮运行
+
+> 如有多个 Cloudflare 账户，可创建多个 Environment，每个配不同的 Token。部署时输入对应环境名即可。
+
+**方式二：Global API Key + Secrets 版本**
+
+1. 进入 Fork 仓库 → **Settings** → **Environments** → **New environment**，创建一个环境（如 `production`）
+2. 点击刚创建的环境 → **Environment secrets** → **Add secret**，依次添加：
+
+| Secret 名称 | 说明 |
+|---|---|
+| `CF_GLOBAL_KEY` | Cloudflare Global API Key（legacy，权限等同账户所有者） |
 | `CF_EMAIL` | Cloudflare 账号邮箱 |
 | `ENCRYPTION_KEY` | 加密密钥（可填 `cfmgrbest`） |
 | `API_SECRET` | 访问密码（可填 `cfmgrbest`） |
@@ -51,18 +117,20 @@ CF Manager 支持三种部署方式。推荐使用 **Fork 一键部署**，最�
 4. 点击 **Run workflow**，在 `environment` 输入环境名称（如 `production`），其他参数保持默认，点击绿色按钮运行
 
 > 如有多个 Cloudflare 账户，可创建多个 Environment，每个配不同的密钥。部署时输入对应环境名即可。
+> 需要完全避免元数据暴露时，用此方式而非方式一。
 
-**方式二：手动输入版本**
+**方式三：手动输入版本（凭据二选一）**
 
 1. 进入 **Actions** 标签 → 左侧选 **Deploy to Cloudflare Pages**
-2. 点击 **Run workflow**，填入参数：
-   - `cf_global_key`：Cloudflare Global API Key
-   - `cf_email`：Cloudflare 账号邮箱
+2. 点击 **Run workflow**，填入参数（凭据二选一，**都未填写会立即终止**）：
+   - **方案 A（推荐）**：`cf_api_token` — Cloudflare API Token
+   - **方案 B（legacy）**：`cf_global_key` + `cf_email` — 两者必须同时填写
    - `full_wipe`：勾选后可完全清空 D1 + KV 后重建（纯净部署）
    - 其他保持默认即可
 3. 点击绿色 **Run workflow** 按钮
 
-> 注意：方式二的凭据会出现在 Workflow run 的 **Inputs 元数据**中（对有权查看仓库 Actions 的协作者可见），但不会打印到步骤日志（已通过 `::add-mask::` 脱敏）。若需完全避免元数据暴露，建议使用方式一（Environment Secrets）。
+> 两者都填时优先使用 API Token，并给出警告。
+> 注意：方式三的凭据会出现在 Workflow run 的 **Inputs 元数据**中（对有权查看仓库 Actions 的协作者可见），但不会打印到步骤日志（已通过 `::add-mask::` 脱敏）。若需完全避免元数据暴露，建议使用方式一或方式二（Environment Secrets）。
 
 #### 4. 等待部署完成
 
@@ -81,7 +149,11 @@ Action 会自动完成：
 
 ### 更新
 
-再次运行 **Deploy to Cloudflare Pages (Secrets)** 或 **Deploy to Cloudflare Pages** Action 即可，数据库不会被覆盖。
+再次运行以下任一 Action 即可，数据库不会被覆盖：
+
+- **Deploy to Cloudflare Pages (API Token)** — 推荐
+- **Deploy to Cloudflare Pages (Secrets)** — Global API Key + Environment Secrets
+- **Deploy to Cloudflare Pages** — 手动输入凭据
 
 如果需要同时更新同步上游仓库的改动：
 1. 在 Fork 的 GitHub 页面点击 **Sync fork** 同步上游更新

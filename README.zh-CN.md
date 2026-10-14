@@ -64,16 +64,44 @@
 
 无需安装任何工具，全程在浏览器中完成。
 
-**推荐：使用 Secrets 版本（敏感信息不泄露到日志）**
+**推荐：使用 API Token 工作流（Cloudflare 官方推荐凭据）**
 
 1. **Fork 本仓库** → 点击右上角 Fork
-2. 进入 Fork 仓库 → **Settings** → **Environments** → **New environment**，创建环境（如 `production`），在环境内添加 4 个 secret：
-   - `CF_GLOBAL_KEY`：Cloudflare Global API Key（部署流程需要全局权限，暂不支持 API Token）
+2. 进入 Fork 仓库 → **Settings** → **Environments** → **New environment**，创建环境（如 `production`），在环境内添加 3 个 secret：
+   - `CF_API_TOKEN`：Cloudflare API Token（所需账户级权限见下方）
+   - `ENCRYPTION_KEY`：加密密钥（请填写高强度随机字符串，至少 16 位）
+   - `API_SECRET`：管理界面访问密码（请填写高强度随机字符串，不要使用弱密码）
+3. 进入 **Actions** → 选择 **Deploy to Cloudflare Pages (API Token)** → **Run workflow**，输入环境名如 `production`
+4. 等待部署完成，访问 `https://cfmgr.pages.dev/admin/`
+
+**API Token 权限**（全部为 Account 级）
+
+| 权限 | 用途 |
+|---|---|
+| `Account.D1:Edit` | 创建/删除 D1 数据库，执行 schema 与迁移 |
+| `Account.Workers KV Storage:Edit` | 创建/删除 KV 命名空间 |
+| `Account.Cloudflare Pages:Edit` | 创建 Pages 项目、配置 secret、查询 subdomain |
+| `Account.Workers Scripts:Edit` | 上传 Pages Functions 产物 |
+| `Account.Account Settings:Read` | `wrangler whoami` 解析账户信息 |
+
+> 部署流程不需要任何 Zone 级权限。更省事的做法：直接选官方模板 **`Edit Cloudflare Workers`**，再补勾 `D1:Edit` 与 `Workers KV Storage:Edit`。
+> 完整说明（含 `full_wipe` 的注意事项）见 [部署文档](docs/deploy.md#21-api-token-权限详解)。
+
+> 为什么推荐 API Token？Cloudflare 官方文档中Global API Key 的页面标题已改为 *"Get Global API key (legacy)"*，并明确建议新集成改用 API Token。Global API Key 的权限等同账户所有者，一旦泄露将危及账户下全部资产。
+
+**备选：Global API Key + Secrets 版本（legacy）**
+
+1. 进入 Fork 仓库 → **Settings** → **Environments** → **New environment**，创建环境（如 `production`），在环境内添加 4 个 secret：
+   - `CF_GLOBAL_KEY`：Cloudflare Global API Key（legacy 凭据，权限等同账户所有者）
    - `CF_EMAIL`：Cloudflare 账号邮箱
    - `ENCRYPTION_KEY`：加密密钥（请填写高强度随机字符串，至少 16 位）
    - `API_SECRET`：管理界面访问密码（请填写高强度随机字符串，不要使用弱密码）
-3. 进入 **Actions** → 选择 **Deploy to Cloudflare Pages (Secrets)** → **Run workflow**，输入环境名如 `production`
-4. 等待部署完成，访问 `https://cfmgr.pages.dev/admin/`
+2. 进入 **Actions** → 选择 **Deploy to Cloudflare Pages (Secrets)** → **Run workflow**，输入环境名如 `production`
+3. 等待部署完成，访问 `https://cfmgr.pages.dev/admin/`
+
+> 获取 Global API Key：[Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → API Keys → Global API Key → View
+>
+> 创建 API Token：[Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → API Tokens → Create Token
 
 > ⚠️ 重要提醒：仅建议绑定本人独立业务 / 测试账号分开管理，请勿批量挂载账号用于自动分摊 AI 配额，该用法违反 Cloudflare 服务协议。
 
