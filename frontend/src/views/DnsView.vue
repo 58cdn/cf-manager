@@ -27,10 +27,10 @@
       />
     </n-space>
 
-    <n-grid :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
+    <n-grid class="dns-grid-container" :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
       <!-- 左侧域名列表 -->
-      <n-gi span="24 m:7">
-        <n-card size="small" style="height: 100%">
+      <n-gi span="24 m:7" class="dns-grid-col">
+        <n-card size="small" class="dns-left-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px;">
           <template #header>
             <n-space align="center" justify="space-between" style="width: 100%">
               <span>{{ t('dns.domainList') }}</span>
@@ -50,7 +50,7 @@
             </n-button>
           </template>
 
-          <n-spin :show="dnsStore.loading">
+          <n-spin :show="dnsStore.loading" style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column;">
             <!-- 所有账户模式：分组折叠 -->
             <template v-if="selectedAccount === '__all__'">
               <n-collapse v-if="groupedDomains.length > 0" :default-expanded-names="expandedGroups">
@@ -132,8 +132,8 @@
       </n-gi>
 
       <!-- 右侧详情面板 -->
-      <n-gi span="24 m:17">
-        <n-card v-if="dnsStore.currentDomain" size="small">
+      <n-gi span="24 m:17" class="dns-grid-col">
+        <n-card v-if="dnsStore.currentDomain" size="small" class="dns-right-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px;">
           <template #header>
             <n-space align="center">
               <span>{{ dnsStore.currentDomain }}</span>
@@ -141,18 +141,24 @@
             </n-space>
           </template>
 
-          <n-tabs v-model:value="activeTab" type="line" @update:value="onTabChange">
+          <n-tabs
+            v-model:value="activeTab"
+            type="line"
+            @update:value="onTabChange"
+            class="dns-tabs"
+            pane-wrapper-style="display: flex; flex-direction: column; flex: 1; min-height: 0;"
+            pane-style="display: flex; flex-direction: column; flex: 1; min-height: 0;"
+          >
             <!-- Tab 1: DNS 记录 -->
             <n-tab-pane name="records" :tab="t('dns.records')">
-              <n-space justify="end" style="margin-bottom: 12px">
+              <div style="display: flex; justify-content: flex-end; margin-bottom: 8px; flex-shrink: 0;">
                 <n-button size="small" type="primary" @click="openAddRecordModal">{{ t('dns.addRecord') }}</n-button>
-              </n-space>
-              <n-data-table
+              </div>
+              <AutoFitTable
+                style="flex: 1 1 0%; min-height: 0; margin-top: 0;"
                 :columns="recordColumns"
                 :data="dnsStore.records"
                 :loading="dnsStore.loading"
-                size="small"
-                :bordered="false"
                 :scroll-x="680"
                 :pagination="{ pageSize: 20 }"
               />
@@ -161,79 +167,122 @@
             <!-- Tab 2: Zone 设置 -->
             <n-tab-pane name="settings" :tab="t('dns.zoneSettings')">
               <n-spin :show="dnsStore.settingsLoading">
-                <n-form label-placement="left" label-width="140" :disabled="dnsStore.settingsLoading">
-                  <n-divider>{{ t('dns.sslTls') }}</n-divider>
-                  <n-form-item :label="t('dns.sslMode')">
-                    <n-select v-model:value="zoneForm.ssl" :options="sslOptions" />
-                  </n-form-item>
-                  <n-form-item :label="t('dns.alwaysHttps')">
-                    <n-switch v-model:value="zoneForm.always_use_https" :checked-value="'on'" :unchecked-value="'off'" />
-                  </n-form-item>
-                  <n-form-item :label="t('dns.autoHttpsRewrite')">
-                    <n-switch v-model:value="zoneForm.automatic_https_rewrites" :checked-value="'on'" :unchecked-value="'off'" />
-                  </n-form-item>
-                  <n-form-item :label="t('dns.securityLevel')">
-                    <n-select v-model:value="zoneForm.security_level" :options="securityOptions" />
-                  </n-form-item>
+                <div class="dns-tab-form-scroll">
+                  <n-grid :cols="24" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
+                    <!-- 左列：SSL/TLS 安全配置 -->
+                    <n-gi span="24 m:12">
+                      <div class="settings-group-card">
+                        <div class="group-card-header">
+                          <span class="group-card-icon">🔒</span>
+                          <span class="group-card-title">{{ t('dns.sslTls') }}</span>
+                        </div>
+                        <n-form label-placement="left" label-width="120" size="small" :disabled="dnsStore.settingsLoading">
+                          <n-form-item :label="t('dns.sslMode')">
+                            <n-select v-model:value="zoneForm.ssl" :options="sslOptions" />
+                          </n-form-item>
+                          <n-form-item :label="t('dns.alwaysHttps')">
+                            <n-switch v-model:value="zoneForm.always_use_https" :checked-value="'on'" :unchecked-value="'off'" />
+                          </n-form-item>
+                          <n-form-item :label="t('dns.autoHttpsRewrite')">
+                            <n-switch v-model:value="zoneForm.automatic_https_rewrites" :checked-value="'on'" :unchecked-value="'off'" />
+                          </n-form-item>
+                          <n-form-item :label="t('dns.securityLevel')">
+                            <n-select v-model:value="zoneForm.security_level" :options="securityOptions" />
+                          </n-form-item>
+                        </n-form>
+                      </div>
+                    </n-gi>
 
-                  <n-divider>{{ t('dns.performance') }}</n-divider>
-                  <n-form-item :label="t('dns.autoMinify')">
-                    <n-space>
-                      <n-checkbox v-model:checked="minifyJs">JS</n-checkbox>
-                      <n-checkbox v-model:checked="minifyCss">CSS</n-checkbox>
-                      <n-checkbox v-model:checked="minifyHtml">HTML</n-checkbox>
-                    </n-space>
-                  </n-form-item>
-                  <n-form-item :label="t('dns.brotli')">
-                    <n-switch v-model:value="zoneForm.brotli" :checked-value="'on'" :unchecked-value="'off'" />
-                  </n-form-item>
-                  <n-form-item :label="t('dns.zeroRtt')">
-                    <n-switch v-model:value="zoneForm.zero_rtt" :checked-value="'on'" :unchecked-value="'off'" />
-                  </n-form-item>
+                    <!-- 右列：性能与传输优化 -->
+                    <n-gi span="24 m:12">
+                      <div class="settings-group-card">
+                        <div class="group-card-header">
+                          <span class="group-card-icon">⚡</span>
+                          <span class="group-card-title">{{ t('dns.performance') }}</span>
+                        </div>
+                        <n-form label-placement="left" label-width="120" size="small" :disabled="dnsStore.settingsLoading">
+                          <n-form-item :label="t('dns.autoMinify')">
+                            <n-space :size="12">
+                              <n-checkbox v-model:checked="minifyJs">JS</n-checkbox>
+                              <n-checkbox v-model:checked="minifyCss">CSS</n-checkbox>
+                              <n-checkbox v-model:checked="minifyHtml">HTML</n-checkbox>
+                            </n-space>
+                          </n-form-item>
+                          <n-form-item :label="t('dns.brotli')">
+                            <n-switch v-model:value="zoneForm.brotli" :checked-value="'on'" :unchecked-value="'off'" />
+                          </n-form-item>
+                          <n-form-item :label="t('dns.zeroRtt')">
+                            <n-switch v-model:value="zoneForm.zero_rtt" :checked-value="'on'" :unchecked-value="'off'" />
+                          </n-form-item>
+                        </n-form>
+                      </div>
+                    </n-gi>
+                  </n-grid>
 
-                  <n-space justify="end">
+                  <div class="settings-action-bar">
+                    <n-text depth="3" style="font-size: 12px">{{ t('dns.saveSettingsHint', '修改配置后点击右侧保存即时生效') }}</n-text>
                     <n-button type="primary" :loading="savingSettings" @click="handleSaveSettings">{{ t('dns.saveSettings') }}</n-button>
-                  </n-space>
-                </n-form>
+                  </div>
+                </div>
               </n-spin>
             </n-tab-pane>
 
             <!-- Tab 3: 缓存与状态 -->
             <n-tab-pane name="cache" :tab="t('dns.cacheAndStatus')">
-              <n-form label-placement="left" label-width="140">
-                <n-divider>{{ t('dns.cacheSettings') }}</n-divider>
-                <n-form-item :label="t('dns.cacheLevel')">
-                  <n-select v-model:value="zoneForm.cache_level" :options="cacheLevelOptions" />
-                </n-form-item>
-                <n-form-item :label="t('dns.browserCacheTtl')">
-                  <n-select v-model:value="zoneForm.browser_cache_ttl" :options="browserTtlOptions" />
-                </n-form-item>
-                <n-form-item :label="t('dns.devMode')">
-                  <n-switch v-model:value="zoneForm.development_mode" :checked-value="'on'" :unchecked-value="'off'" />
-                  <n-text depth="3" style="margin-left: 12px; font-size: 12px">{{ t('dns.devModeHint') }}</n-text>
-                </n-form-item>
+              <div class="dns-tab-form-scroll">
+                <n-grid :cols="24" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
+                  <!-- 左列：缓存策略设置 -->
+                  <n-gi span="24 m:12">
+                    <div class="settings-group-card">
+                      <div class="group-card-header">
+                        <span class="group-card-icon">⚡</span>
+                        <span class="group-card-title">{{ t('dns.cacheSettings') }}</span>
+                      </div>
+                      <n-form label-placement="left" label-width="120" size="small">
+                        <n-form-item :label="t('dns.cacheLevel')">
+                          <n-select v-model:value="zoneForm.cache_level" :options="cacheLevelOptions" />
+                        </n-form-item>
+                        <n-form-item :label="t('dns.browserCacheTtl')">
+                          <n-select v-model:value="zoneForm.browser_cache_ttl" :options="browserTtlOptions" />
+                        </n-form-item>
+                        <n-form-item :label="t('dns.devMode')">
+                          <n-space align="center">
+                            <n-switch v-model:value="zoneForm.development_mode" :checked-value="'on'" :unchecked-value="'off'" />
+                            <n-text depth="3" style="font-size: 12px">{{ t('dns.devModeHint') }}</n-text>
+                          </n-space>
+                        </n-form-item>
+                      </n-form>
+                    </div>
+                  </n-gi>
 
-                <n-divider>{{ t('dns.purgeCache') }}</n-divider>
-                <n-form-item :label="t('dns.purgeMethod')">
-                  <n-space vertical style="width: 100%">
-                    <n-popconfirm @positive-click="handlePurgeAll">
-                      <template #trigger>
-                        <n-button size="small" type="warning">{{ t('dns.purgeAll') }}</n-button>
-                      </template>
-                      {{ t('dns.purgeAllConfirm') }}
-                    </n-popconfirm>
-                    <n-button size="small" @click="showUrlPurge = !showUrlPurge">{{ showUrlPurge ? t('dns.collapse') : t('dns.purgeByUrl') }}</n-button>
-                    <template v-if="showUrlPurge">
-                      <n-input
-                        v-model:value="purgeUrls"
-                        type="textarea"
-                        :placeholder="t('dns.purgeUrlPlaceholder')"
-                        :rows="4"
-                      />
-                      <n-button size="small" type="primary" :loading="purging" @click="handlePurgeUrls">{{ t('dns.purgeSpecifiedUrl') }}</n-button>
-                    </template>
-                  </n-space>
-                </n-form-item>
+                  <!-- 右列：缓存清理与状态 -->
+                  <n-gi span="24 m:12">
+                    <div class="settings-group-card">
+                      <div class="group-card-header">
+                        <span class="group-card-icon">🧹</span>
+                        <span class="group-card-title">{{ t('dns.purgeCache') }}</span>
+                      </div>
+                      <n-form label-placement="left" label-width="100" size="small">
+                        <n-form-item :label="t('dns.purgeMethod')">
+                          <n-space align="center">
+                            <n-popconfirm @positive-click="handlePurgeAll">
+                              <template #trigger>
+                                <n-button size="small" type="warning">{{ t('dns.purgeAll') }}</n-button>
+                              </template>
+                              {{ t('dns.purgeAllConfirm') }}
+                            </n-popconfirm>
+                            <n-button size="small" @click="showUrlPurge = !showUrlPurge">{{ showUrlPurge ? t('dns.collapse') : t('dns.purgeByUrl') }}</n-button>
+                          </n-space>
+                        </n-form-item>
+                        <div v-if="showUrlPurge" style="margin-bottom: 12px;">
+                          <n-input
+                            v-model:value="purgeUrls"
+                            type="textarea"
+                            :placeholder="t('dns.purgeUrlPlaceholder')"
+                            :rows="3"
+                          />
+                          <n-button size="small" type="primary" :loading="purging" @click="handlePurgeUrls" style="margin-top: 8px;">{{ t('dns.purgeSpecifiedUrl') }}</n-button>
+                        </div>
 
                 <n-divider>{{ t('dns.zoneStatus') }}</n-divider>
                 <n-form-item :label="t('dns.currentStatus')">
@@ -260,13 +309,22 @@
                       {{ t('dns.pauseWarning') }}
                     </template>
                   </n-popconfirm>
-                </n-form-item>
-              </n-form>
+                        </n-form-item>
+                      </n-form>
+                    </div>
+                  </n-gi>
+                </n-grid>
+
+                <div class="settings-action-bar" style="margin-top: 16px;">
+                  <n-text depth="3" style="font-size: 12px">{{ t('dns.saveSettingsHint', '修改配置后点击右侧保存即时生效') }}</n-text>
+                  <n-button type="primary" :loading="savingSettings" @click="handleSaveSettings">{{ t('dns.saveSettings') }}</n-button>
+                </div>
+              </div>
             </n-tab-pane>
           </n-tabs>
         </n-card>
 
-        <n-card v-else size="small">
+        <n-card v-else size="small" class="dns-right-card" content-style="display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0;">
           <n-empty :description="t('dns.selectFromLeft')" style="margin: 40px 0" />
         </n-card>
       </n-gi>
@@ -365,6 +423,7 @@ import { NButton, NSwitch, NTag, NText, NCheckbox, useMessage, useDialog } from 
 import type { DataTableColumns, FormInst, FormRules } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { useDnsStore } from '../stores/dnsStore';
+import AutoFitTable from '../components/AutoFitTable.vue';
 import { dnsApi } from '../api/dns';
 import { accountsApi } from '../api/accounts';
 import { loadDemoAccounts, isDemoAccount } from '../utils/demoAccounts';
@@ -448,11 +507,11 @@ function isDemoDomain(d: any): boolean {
 
 function statusColor(status?: string): string {
   switch (status) {
-    case 'active': return 'var(--n-success-color, #18a058)';
-    case 'pending': return 'var(--n-warning-color, #f0a020)';
+    case 'active': return 'var(--theme-success)';
+    case 'pending': return 'var(--theme-warning)';
     case 'paused': return 'var(--n-text-color-disabled, #999)';
-    case 'moved': return 'var(--n-error-color, #d03050)';
-    case 'initializing': return 'var(--n-info-color, #2080f0)';
+    case 'moved': return 'var(--theme-error)';
+    case 'initializing': return 'var(--theme-info)';
     default: return 'var(--n-text-color-disabled, #999)';
   }
 }
@@ -894,4 +953,130 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.dns-grid-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100% !important;
+  grid-template-rows: 1fr !important;
+  box-sizing: border-box;
+}
+
+.dns-grid-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dns-left-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dns-left-card :deep(.n-card__content) {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.dns-right-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dns-right-card :deep(.n-card__content) {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dns-tabs {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dns-tabs :deep(.n-tab-pane) {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dns-tabs :deep(.n-tabs-pane-wrapper) {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dns-tab-form-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-group-card {
+  background: var(--app-bg-secondary);
+  border: 1px solid var(--app-border-light);
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.settings-group-card:hover {
+  border-color: var(--theme-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.group-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--app-border-input);
+}
+
+.group-card-icon {
+  font-size: 16px;
+}
+
+.group-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text-heading);
+}
+
+.dns-tab-form-scroll :deep(.n-form-item) {
+  margin-bottom: 12px !important;
+}
+
+.settings-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--glass-card-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow: var(--glass-shadow);
+}
 </style>

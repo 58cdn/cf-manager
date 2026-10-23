@@ -8,7 +8,7 @@
     </n-space>
 
     <!-- 账户卡片：只显示有部署数量的账户，悬停显示用量详情，点击切换加载 -->
-    <div class="card-grid-scroll" style="width: 100%; margin-bottom: 16px">
+    <div class="card-grid-scroll" style="width: 100%">
       <n-grid v-if="accountCards.length" :x-gap="10" :y-gap="10" cols="1 s:2 m:4 l:6 xl:8" responsive="screen" style="width: 100%">
         <n-gi v-for="c in accountCards" :key="c.accountId">
           <n-popover trigger="hover" placement="bottom" style="display: block; width: 100%;">
@@ -57,40 +57,36 @@
       <n-empty v-else :description="t('workers.noAccounts')" />
     </div>
 
-    <div class="table-scroll-wrapper">
-      <n-data-table
-        :columns="columns"
-        :data="workerStore.workers"
-        :loading="workerStore.loading"
-        flex-height
-        :bordered="false"
-        :scroll-x="700"
-        :pagination="false"
-        style="flex: 1; min-height: 0"
-      />
-    </div>
-
-    <!-- 底部统计栏 -->
-    <div class="table-footer-bar">
-      <n-space align="center" :size="16">
-        <n-text depth="3" style="font-size: 12px">
-          {{ t('workers.totalDeployments', { count: workerStore.workers.length }) }}
-        </n-text>
-        <n-text depth="3" style="font-size: 12px">·</n-text>
-        <n-space align="center" :size="4">
-          <span class="status-dot status-dot--worker" />
-          <n-text depth="3" style="font-size: 12px">Worker {{ workerCount }}</n-text>
-        </n-space>
-        <n-space align="center" :size="4">
-          <span class="status-dot status-dot--pages" />
-          <n-text depth="3" style="font-size: 12px">Pages {{ pagesCount }}</n-text>
-        </n-space>
-        <template v-if="workerStore.selectedAccountId">
+    <AutoFitTable
+      :columns="columns"
+      :data="workerStore.workers"
+      :loading="workerStore.loading"
+      :scroll-x="700"
+      :pagination="false"
+      style="margin-top: 0"
+    >
+      <!-- 底部统计栏整合进 AutoFitTable 的 footer 插槽 -->
+      <template #footer>
+        <n-space align="center" :size="16">
+          <n-text depth="3" style="font-size: 12px">
+            {{ t('workers.totalDeployments', { count: workerStore.workers.length }) }}
+          </n-text>
           <n-text depth="3" style="font-size: 12px">·</n-text>
-          <n-text depth="3" style="font-size: 12px">{{ t('workers.currentAccount', { name: selectedAccountName }) }}</n-text>
-        </template>
-      </n-space>
-    </div>
+          <n-space align="center" :size="4">
+            <span class="status-dot status-dot--worker" />
+            <n-text depth="3" style="font-size: 12px">Worker {{ workerCount }}</n-text>
+          </n-space>
+          <n-space align="center" :size="4">
+            <span class="status-dot status-dot--pages" />
+            <n-text depth="3" style="font-size: 12px">Pages {{ pagesCount }}</n-text>
+          </n-space>
+          <template v-if="workerStore.selectedAccountId">
+            <n-text depth="3" style="font-size: 12px">·</n-text>
+            <n-text depth="3" style="font-size: 12px">{{ t('workers.currentAccount', { name: selectedAccountName }) }}</n-text>
+          </template>
+        </n-space>
+      </template>
+    </AutoFitTable>
 
     <!-- 日志 Drawer -->
     <n-drawer v-model:show="showLogDrawer" :width="drawerWidth(520)" placement="right">
@@ -139,6 +135,7 @@ import { loadDemoAccounts, isDemoAccount } from '../utils/demoAccounts';
 import WorkerSettingsDrawer from '../components/WorkerSettingsDrawer.vue';
 import WorkerPagesSettingsDrawer from '../components/WorkerPagesSettingsDrawer.vue';
 import DeployDialog from '../components/DeployDialog.vue';
+import AutoFitTable from '../components/AutoFitTable.vue';
 
 const { t } = useI18n();
 const workerStore = useWorkerStore();
@@ -321,7 +318,7 @@ onMounted(async () => {
   min-width: 0;
   height: 36px;
   padding: 0 12px;
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s, border-color 0.2s;
@@ -331,7 +328,7 @@ onMounted(async () => {
 .worker-compact-card:hover { background-color: var(--app-bg-hover); }
 .worker-compact-card__count {
   font-size: 11px;
-  color: var(--app-text-disabled);
+  color: var(--app-text-tertiary);
   font-weight: 500;
   flex-shrink: 0;
   white-space: nowrap;
@@ -377,7 +374,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  border-top: 1px solid var(--app-border);
+  border-top: 1px solid var(--app-border-input);
   background-color: var(--app-bg-card);
   border-radius: 0 0 6px 6px;
   min-height: 36px;
@@ -392,10 +389,10 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .status-dot--worker {
-  background-color: #18a058;
+  background-color: var(--theme-success);
 }
 .status-dot--pages {
-  background-color: #2080f0;
+  background-color: var(--theme-info);
 }
 
 .card-grid-scroll {

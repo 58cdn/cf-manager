@@ -19,6 +19,7 @@ html[data-ui-theme='verdant'] {
   --ui-primary: #16794b;
   --ui-tint: #e7f3ec;
   --ui-shadow: 0 2px 8px rgb(24 40 32 / 4%);
+  --glass-surface-opaque: #ffffff;
   --text-h: var(--app-text-heading);
   --bg: var(--app-bg);
   color-scheme: light;
@@ -44,6 +45,7 @@ html[data-ui-theme='verdant'].app-dark {
   --ui-primary: #63d69b;
   --ui-tint: #234238;
   --ui-shadow: none;
+  --glass-surface-opaque: #1b2433;
   color-scheme: dark;
 }
 
@@ -59,7 +61,7 @@ html[data-ui-theme='verdant'] .workspace-layout > .n-layout-scroll-container {
 }
 html[data-ui-theme='verdant'] .workspace-header { height: 56px !important; flex: 0 0 56px; gap: 12px; padding: 0 24px !important; }
 html[data-ui-theme='verdant'] .current-section { margin-right: auto; font-weight: 600; }
-html[data-ui-theme='verdant'] .workspace-content { flex: 1; min-height: 0; height: auto !important; }
+html[data-ui-theme='verdant'] .workspace-content { flex: 1; min-height: 0; height: auto !important; overflow-y: auto !important; }
 html[data-ui-theme='verdant'] .workspace-content > .n-layout-scroll-container { padding: 24px !important; }
 html[data-ui-theme='verdant'] .n-layout-footer { flex-shrink: 0; color: var(--app-text-muted) !important; }
 html[data-ui-theme='verdant'] .sidebar-brand { height: 56px; padding: 0 16px !important; display: flex; align-items: center; justify-content: center; box-sizing: border-box; color: var(--ui-primary); letter-spacing: 0; }

@@ -17,7 +17,7 @@
       </n-space>
     </n-space>
 
-    <n-space align="center" :size="12" style="margin: 12px 0;">
+    <n-space align="center" :size="12" style="margin-bottom: 12px; flex-shrink: 0;">
       <n-button-group size="small">
         <n-button :type="accountStore.filter === 'all' ? 'primary' : 'default'" @click="handleFilterChange('all')">{{ t('accounts.filterAll') }} ({{ accountStore.counts.all }})</n-button>
         <n-button :type="accountStore.filter === 'active' ? 'primary' : 'default'" @click="handleFilterChange('active')">{{ t('accounts.filterActive') }} ({{ accountStore.counts.active }})</n-button>
@@ -25,7 +25,7 @@
       </n-button-group>
       <n-button
         size="small"
-        type="warning"
+        type="primary"
         :loading="batchTesting"
         :disabled="accountStore.filter === 'unverified' && accountStore.counts.unverified === 0"
         @click="handleTestBatch"
@@ -50,11 +50,11 @@
       </template>
     </n-space>
 
-    <n-data-table
+    <AutoFitTable
+      style="margin-top: 0;"
       :columns="columns"
       :data="accountStore.accounts"
       :loading="accountStore.loading"
-      :bordered="false"
       :scroll-x="1200"
       :pagination="paginationConfig"
       :remote="true"
@@ -85,6 +85,10 @@
               <n-checkbox v-for="f in featureOptions" :key="f.value" :value="f.value" :label="f.label" />
             </n-space>
           </n-checkbox-group>
+        </n-form-item>
+        <n-form-item :label="t('accounts.workerPlan')">
+          <n-select v-model:value="form.worker_plan" :options="workerPlanOptions" style="width: 180px" />
+          <n-text depth="3" style="margin-left: 8px; font-size: 12px">{{ t('accounts.workerPlanHint') }}</n-text>
         </n-form-item>
       </n-form>
       <template #action>
@@ -349,6 +353,7 @@ import { NButton, NSpace, NProgress, NTag, NDropdown, useMessage } from 'naive-u
 import type { DataTableColumns } from 'naive-ui';
 import type { UploadFileInfo } from 'naive-ui';
 import { useAccountStore } from '../stores/accountStore';
+import AutoFitTable from '../components/AutoFitTable.vue';
 import { accountsApi, type AccountExportParams } from '../api/accounts';
 import { dialog } from '../utils/discreteApi';
 import { settingsApi } from '../api/settings';
@@ -509,6 +514,7 @@ const form = ref({
   api_key: '',
   email: '',
   features: ['ai', 'workers', 'browser_render', 'dns', 'storage'] as string[],
+  worker_plan: 'free',
 });
 
 const authTypeOptions = computed(() => [
@@ -516,8 +522,15 @@ const authTypeOptions = computed(() => [
   { label: t('accounts.authTypeKey'), value: 'global_key' },
 ]);
 
+// 账号的 Cloudflare Workers 计划类型：付费模型只路由到 paid/enterprise 账号（不标即视为免费）
+const workerPlanOptions = computed(() => [
+  { label: t('accounts.planFree'), value: 'free' },
+  { label: t('accounts.planPaid'), value: 'paid' },
+  { label: t('accounts.planEnterprise'), value: 'enterprise' },
+]);
+
 function resetForm() {
-  form.value = { name: '', auth_type: 'token', api_token: '', api_key: '', email: '', features: ['ai', 'workers', 'browser_render', 'dns', 'storage'] };
+  form.value = { name: '', auth_type: 'token', api_token: '', api_key: '', email: '', features: ['ai', 'workers', 'browser_render', 'dns', 'storage'], worker_plan: 'free' };
 }
 
 async function handleSubmit() {
@@ -528,7 +541,7 @@ async function handleSubmit() {
   submitting.value = true;
   try {
     const { features, ...rest } = form.value;
-    const payload: any = { name: rest.name, auth_type: rest.auth_type };
+    const payload: any = { name: rest.name, auth_type: rest.auth_type, worker_plan: rest.worker_plan };
     // 仅发送用户实际填写的凭证字段；空串一律剔除，避免覆盖原凭证
     if (rest.auth_type === 'token') {
       if (rest.api_token) payload.api_token = rest.api_token;
@@ -562,6 +575,7 @@ function openAccountEditor(row: any) {
     api_key: '',
     email: '',
     features: parseFeatures(row.enabled_features),
+    worker_plan: row.worker_plan || 'free',
   };
   showAddModal.value = true;
 }
@@ -872,13 +886,19 @@ const columns = computed<DataTableColumns<any>>(() => {
   { type: 'selection', width: 40, fixed: 'left' },
   { title: 'ID', key: 'id', width: 60 },
   { title: t('accounts.table.name'), key: 'name', width: 150 },
-  { title: 'Account ID', key: 'account_id', width: 180, ellipsis: { tooltip: true }, render: (row) => row.account_id || '-' },
+  { title: 'Account ID', key: 'account_id', width: 180, ellipsis: { tooltip: true }, render: (row) => h('span', { style: { fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--app-text-secondary)' } }, row.account_id || '-') },
   { title: t('accounts.table.authType'), key: 'auth_type', width: 120, render: (row) => h(NTag, { size: 'small', type: row.auth_type === 'token' ? 'info' : 'warning' }, { default: () => row.auth_type === 'token' ? 'Token' : 'Key' }) },
+  { title: t('accounts.workerPlan'), key: 'worker_plan', width: 90, render: (row) => {
+    // 未标注（空）与 'free' 都按免费处理；付费模型只会路由到「付费/企业」账号
+    const plan = row.worker_plan === 'paid' || row.worker_plan === 'enterprise' ? row.worker_plan : 'free';
+    const labelKey = plan === 'paid' ? 'accounts.planPaid' : plan === 'enterprise' ? 'accounts.planEnterprise' : 'accounts.planFree';
+    return h(NTag, { size: 'small', type: plan === 'free' ? 'default' : 'success', bordered: false }, { default: () => t(labelKey) });
+  }},
   ];
   // Worker 平台不支持代理，隐藏代理列
   if (!isWorkerPlatform.value) {
     cols.push({ title: t('accounts.table.proxy'), key: 'proxy_url', width: 80, align: 'center', render: (row) => {
-      if (!row.proxy_url) return h('span', { style: { color: '#999', fontSize: '12px' } }, '—');
+      if (!row.proxy_url) return h('span', { style: { color: 'var(--app-text-muted)', fontSize: '12px' } }, '—');
       return row.proxy_enabled
         ? h(NTag, { size: 'small', type: 'success', bordered: false }, { default: () => t('common.enabled') })
         : h(NTag, { size: 'small', type: 'default', bordered: false }, { default: () => t('common.disabled') });
@@ -910,14 +930,14 @@ const columns = computed<DataTableColumns<any>>(() => {
   }},
   { title: t('accounts.table.aiQuota'), key: 'aiQuota', width: 160, render: (row) => {
     const quotaItem = accountStore.quota.find((q: any) => q.accountId === row.id);
-    if (!quotaItem || !quotaItem.resources) return h('span', { style: { color: '#999', fontSize: '12px' } }, '—');
+    if (!quotaItem || !quotaItem.resources) return h('span', { style: { color: 'var(--app-text-muted)', fontSize: '12px' } }, '—');
     const aiResource = quotaItem.resources.find((r: any) => r.resource === 'ai_neurons');
-    if (!aiResource) return h('span', { style: { color: '#999', fontSize: '12px' } }, '—');
+    if (!aiResource) return h('span', { style: { color: 'var(--app-text-muted)', fontSize: '12px' } }, '—');
     const exhausted = aiResource.exhausted;
     const pct = Math.min(100, Math.round(((aiResource.count || 0) / (aiResource.limit || 1)) * 100));
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '100px' } }, [
       h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
-        h('span', { style: { fontSize: '12px', color: exhausted ? '#e03050' : '#666' } }, `${pct}%`),
+        h('span', { style: { fontSize: '12px', color: exhausted ? 'var(--theme-error)' : 'var(--app-text-secondary)' } }, `${pct}%`),
         exhausted
           ? h(NTag, { size: 'small', type: 'error', bordered: false }, { default: () => t('accounts.table.exhausted') })
           : null,
@@ -946,7 +966,7 @@ const columns = computed<DataTableColumns<any>>(() => {
         ...(isWorkerPlatform.value ? [] : [{ label: t('accounts.table.setProxy'), key: 'proxy', disabled: !!row.is_demo }]),
         ...(isExhausted ? [{ label: t('accounts.table.clearExhausted'), key: 'clearExhausted', disabled: !!row.is_demo }] : []),
         { type: 'divider' as const, key: 'd' },
-        { label: t('accounts.table.deleteAccount'), key: 'delete', disabled: !!row.is_demo, props: { style: 'color: var(--n-error-color)' } },
+        { label: t('accounts.table.deleteAccount'), key: 'delete', disabled: !!row.is_demo, props: { style: 'color: var(--theme-error)' } },
       ];
       return h(NSpace, { size: 4 }, {
         default: () => [

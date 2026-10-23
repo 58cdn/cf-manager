@@ -1,13 +1,13 @@
 name: CI
 
-# 自动 CI 检查：针对 master 的 PR 自动触发，编译/类型检查/单元测试校验三部分代码，
+# 自动 CI 检查：针对 main / master 的 PR 自动触发，编译/类型检查/单元测试校验三部分代码，
 # 任一失败则该 PR 的状态检查变红，配合分支规则集（protect-master）阻止合并。
 # 三个 job 的 status check context 分别为：build-backend / build-frontend / build-worker
 on:
   push:
-    branches: [master]
+    branches: [master, main, codex/sync-upstream-*]
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 permissions:
   contents: read
@@ -73,6 +73,9 @@ jobs:
       - name: Lint frontend
         working-directory: frontend
         run: npm run lint
+      - name: Test frontend theme compatibility
+        working-directory: frontend
+        run: npm test
 
   build-worker:
     runs-on: ubuntu-latest

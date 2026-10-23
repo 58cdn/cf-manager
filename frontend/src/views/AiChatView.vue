@@ -9,9 +9,9 @@
           <div
             v-for="s in suggestions"
             :key="s"
-            style="cursor: pointer; padding: 12px 20px; font-size: 14px; border: 1px solid var(--app-border); border-radius: 24px; background: var(--app-bg-card); color: var(--app-text-primary); transition: all 0.2s;"
-            @mouseenter="(e: MouseEvent) => { const t = e.target as HTMLElement; t.style.borderColor = '#2080f0'; t.style.color = '#2080f0'; }"
-            @mouseleave="(e: MouseEvent) => { const t = e.target as HTMLElement; t.style.borderColor = '#e0e0e0'; t.style.color = '#333'; }"
+            style="cursor: pointer; padding: 12px 20px; font-size: 14px; border: 1px solid var(--app-border-input); border-radius: 24px; background: var(--app-bg-card); color: var(--app-text-primary); transition: all 0.2s;"
+            @mouseenter="(e: MouseEvent) => { const t = e.target as HTMLElement; t.style.borderColor = 'var(--theme-primary)'; t.style.color = 'var(--theme-primary)'; }"
+            @mouseleave="(e: MouseEvent) => { const t = e.target as HTMLElement; t.style.borderColor = 'var(--app-border-input)'; t.style.color = 'var(--app-text-primary)'; }"
             @click="useSuggestion(s)"
           >
             {{ s }}
@@ -23,11 +23,11 @@
       <div v-for="(msg, idx) in messages" :key="idx" style="margin-bottom: 20px; display: flex; flex-direction: column; align-items: flex-end;">
         <!-- 用户消息 -->
         <div v-if="msg.role === 'user'" style="display: flex; justify-content: flex-end; width: 100%;">
-          <div style="background: #18a058; color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">{{ msg.content }}</div>
+          <div style="background: var(--theme-primary); color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">{{ msg.content }}</div>
         </div>
         <!-- AI 消息 -->
         <div v-else style="display: flex; justify-content: flex-start; width: 100%; gap: 10px;">
-          <div style="width: 36px; height: 36px; border-radius: 50%; background: #2080f0; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;">AI</div>
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--theme-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;">AI</div>
           <div style="background: var(--app-bg-secondary); padding: 12px 16px; border-radius: 4px 16px 16px 16px; max-width: 70%; font-size: 15px; line-height: 1.6;">
             <!-- 思考过程 -->
             <div v-if="msg.reasoning" style="margin-bottom: 10px;">
@@ -43,7 +43,7 @@
             <!-- 回答内容 -->
             <div style="white-space: pre-wrap;">{{ msg.content }}</div>
             <!-- 加载中 -->
-            <div v-if="msg.loading" style="color: var(--app-text-disabled);">
+            <div v-if="msg.loading" style="color: var(--app-text-tertiary);">
               <n-spin size="small" /> {{ t('ai.thinking') }}
             </div>
           </div>
@@ -153,10 +153,18 @@ function renderModelLabel(option: any) {
 async function fetchAccounts() {
   try {
     const { data } = await accountsApi.getAll();
-    const accounts = (data.accounts || []).filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai')).map((a: any) => ({
-      label: a.name,
-      value: a.account_id || String(a.id), // Use account_id (Cloudflare ID) for AI requests
-    }));
+    const seen = new Set<string>();
+    const accounts = (data.accounts || [])
+      .filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai'))
+      .map((a: any) => ({
+        label: a.name,
+        value: a.account_id || String(a.id), // Use account_id (Cloudflare ID) for AI requests
+      }))
+      .filter((opt: { value: string }) => {
+        if (!opt.value || seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      });
     accountOptions.value = [
       { label: '🤖 ' + t('ai.autoAssign'), value: 'auto' },
       ...accounts,
@@ -384,7 +392,7 @@ watch(selectedAccount, () => {
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;

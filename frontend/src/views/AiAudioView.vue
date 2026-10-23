@@ -231,10 +231,18 @@ const canGenerate = computed(() => {
 async function fetchAccounts() {
   try {
     const { data } = await accountsApi.getAll();
-    const accounts = (data.accounts || []).filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai')).map((a: any) => ({
-      label: a.name,
-      value: a.account_id || String(a.id),
-    }));
+    const seen = new Set<string>();
+    const accounts = (data.accounts || [])
+      .filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai'))
+      .map((a: any) => ({
+        label: a.name,
+        value: a.account_id || String(a.id),
+      }))
+      .filter((opt: { value: string }) => {
+        if (!opt.value || seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      });
     accountOptions.value = [
       { label: '🤖 ' + t('ai.autoAssign'), value: 'auto' },
       ...accounts,
@@ -411,17 +419,21 @@ onMounted(() => {
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
+  padding: 12px;
+  gap: 12px;
 }
 
 .ai-audio-sidebar {
   width: 340px;
-  min-width: 340px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--app-border);
+  gap: 10px;
   overflow-y: auto;
+  background: var(--app-bg-card);
+  border: 1px solid var(--app-border-input);
+  border-radius: 8px;
   padding: 12px;
-  gap: 12px;
 }
 
 .sidebar-section {
@@ -431,7 +443,7 @@ onMounted(() => {
 }
 
 .sidebar-select {
-  margin-bottom: 4px;
+  width: 100%;
 }
 
 .ai-audio-hint {
@@ -496,25 +508,24 @@ onMounted(() => {
 .ai-audio-main {
   flex: 1;
   overflow-y: auto;
+  border: 1px solid var(--app-border-input);
+  border-radius: 8px;
   padding: 16px;
-  position: relative;
+  background: var(--app-bg-secondary);
 }
 
 .ai-audio-generating-bar {
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  background: var(--n-color-tag);
-  border-bottom: 1px solid var(--app-border);
-  z-index: 10;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--app-bg-tertiary);
+  border-radius: 6px;
 }
 
 .ai-audio-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
@@ -530,10 +541,11 @@ onMounted(() => {
 }
 
 .ai-audio-card {
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 8px;
   padding: 12px 16px;
-  background: var(--n-color-modal);
+  background: var(--glass-surface-solid);
+  box-shadow: var(--glass-shadow);
 }
 
 .ai-audio-card-header {
@@ -593,10 +605,7 @@ onMounted(() => {
   }
   .ai-audio-sidebar {
     width: 100%;
-    min-width: 100%;
     max-height: 50vh;
-    border-right: none;
-    border-bottom: 1px solid var(--app-border);
   }
 }
 </style>

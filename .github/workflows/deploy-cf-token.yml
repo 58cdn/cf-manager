@@ -1,0 +1,74 @@
+name: Deploy to Cloudflare Pages (API Token)
+
+# 入口工作流 —— 通过 GitHub Environments 读取预配置的 Secrets，调用 composite action
+# 使用 Cloudflare API Token 认证（官方推荐方式，Global API Key 已被官方标记为 legacy）
+#
+# 需要在 GitHub 仓库 Settings → Environments 中创建对应 environment，并配置以下 secrets：
+#   CF_API_TOKEN   — Cloudflare API Token
+#   ENCRYPTION_KEY — 加密密钥（用于加密存储 API Token）
+#   API_SECRET     — 访问密码（可选）
+#
+# API Token 所需账户级权限：
+#   D1:Edit / KV Storage:Edit / Pages:Edit / Workers Scripts:Edit / Account Settings:Read
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署目标（输入 GitHub Environment 名称，如 production）'
+        required: true
+        type: string
+        default: 'production'
+      project_name:
+        description: 'Pages 项目名称'
+        required: false
+        default: 'cfmgr'
+        type: string
+      d1_database_name:
+        description: 'D1 数据库名称'
+        required: false
+        default: 'cfmgr'
+        type: string
+      kv_namespace_name:
+        description: 'KV 命名空间名称'
+        required: false
+        default: 'cfmgr'
+        type: string
+      demo_mode:
+        description: '演示模式：保护部署账户（禁止编辑/删除等破坏性操作）。API Token 无邮箱，按 Cloudflare Account ID 匹配'
+        required: false
+        default: true
+        type: boolean
+      full_wipe:
+        description: '完全覆盖：删除并重建 D1 数据库 + 清空 KV 命名空间'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # 使用 GitHub Environments 锁定部署目标：
+    # 每个 environment 下配置独立的 CF_API_TOKEN / ENCRYPTION_KEY / API_SECRET，
+    # 部署时通过下拉选择 environment，敏感信息全程不出现在 Inputs 元数据与步骤日志中。
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      API_SECRET: ${{ secrets.API_SECRET }}
+
+    steps:
+      # checkout 必须在调用本地 composite action 之前执行，否则 runner 找不到 action.yml
+      - uses: actions/checkout@v5
+
+      - name: Deploy
+        uses: ./.github/actions/deploy-cf
+        with:
+          project_name: ${{ github.event.inputs.project_name }}
+          d1_database_name: ${{ github.event.inputs.d1_database_name }}
+          kv_namespace_name: ${{ github.event.inputs.kv_namespace_name }}
+          demo_mode: ${{ github.event.inputs.demo_mode }}
+          full_wipe: ${{ github.event.inputs.full_wipe }}

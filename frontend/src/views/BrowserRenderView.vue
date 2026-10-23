@@ -13,25 +13,25 @@
               <n-progress
                 type="line"
                 :percentage="Math.min(u.used / u.limit * 100, 100)"
-                :color="u.used > 500 ? '#e03050' : '#2080f0'"
+                :color="u.used > 500 ? 'var(--theme-error)' : 'var(--theme-primary)'"
                 :rail-color="'#e8e8e8'"
                 :height="6"
                 :show-indicator="false"
                 :style="{ flex: '1 1 0', minWidth: '24px', overflow: 'hidden' }"
               />
-              <span class="br-compact-card__metric" :style="{ color: u.used > 500 ? '#e03050' : '#666' }">{{ formatSeconds(u.used) }}</span>
+              <span class="br-compact-card__metric" :style="{ color: u.used > 500 ? 'var(--theme-error)' : '#666' }">{{ formatSeconds(u.used) }}</span>
             </div>
           </template>
           <div style="min-width: 220px; padding: 4px 0;">
             <div style="font-weight: bold; margin-bottom: 10px;">{{ u.accountName }}</div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
               <span>{{ t('browserRender.usedTotal') }}</span>
-              <span><b :style="{ color: u.used > 500 ? '#e03050' : '#2080f0' }">{{ formatSeconds(u.used) }}</b> / {{ formatSeconds(u.limit) }}</span>
+              <span><b :style="{ color: u.used > 500 ? 'var(--theme-error)' : 'var(--theme-primary)' }">{{ formatSeconds(u.used) }}</b> / {{ formatSeconds(u.limit) }}</span>
             </div>
             <n-progress
               type="line"
               :percentage="Math.min(u.used / u.limit * 100, 100)"
-              :color="u.used > 500 ? '#e03050' : '#2080f0'"
+              :color="u.used > 500 ? 'var(--theme-error)' : 'var(--theme-primary)'"
               :rail-color="'#e8e8e8'"
               :height="12"
               :show-indicator="false"
@@ -131,7 +131,7 @@
       <n-card v-if="result?.links" :title="t('browserRender.extractedLinks')" size="small" style="margin-bottom: 16px">
         <div v-if="Array.isArray(result.links)">
           <div v-for="(link, i) in result.links" :key="i" style="padding: 4px 0; border-bottom: 1px solid var(--app-border-light); font-size: 13px;">
-            <a :href="link" target="_blank" style="color: #2080f0;">{{ link }}</a>
+            <a :href="link" target="_blank" style="color: var(--theme-primary);">{{ link }}</a>
           </div>
           <div style="margin-top: 8px; color: var(--app-text-muted); font-size: 13px;">{{ t('browserRender.totalLinks', { count: result.links.length }) }}</div>
         </div>
@@ -254,7 +254,7 @@ onMounted(() => {
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
