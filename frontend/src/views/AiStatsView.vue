@@ -1,8 +1,8 @@
 <template>
   <div class="ai-stats-root">
-    <!-- 汇总信息 -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <div style="font-size: 16px; font-weight: 600;">{{ t('aiStats.title', 'AI 使用量统计') }}</div>
+    <!-- 汇总信息（固定在顶部，不随账户卡片滚动） -->
+    <div class="ai-stats-header">
+      <div class="ai-stats-title">{{ t('aiStats.title', 'AI 使用量统计') }}</div>
       <n-button secondary type="primary" size="small" :loading="loading" @click="fetchUsage">{{ t('common.refresh') }}</n-button>
     </div>
     <n-spin :show="loading">
@@ -35,38 +35,39 @@
           <div class="ai-stats-card">
             <div class="ai-stats-card-header">
               <span class="ai-stats-card-name" :title="u.accountName">{{ u.accountName }}</span>
-              <span
-                class="ai-stats-card-badge"
-                :class="{ 'badge-warning': u.totalNeurons > 8000, 'badge-danger': u.totalNeurons > 9500 }"
-              >
-                {{ Math.min(u.totalNeurons / 100, 100).toFixed(0) }}%
+              <span class="ai-stats-card-badge" :class="badgeClass(u.totalNeurons)">
+                {{ formatPercent(u.totalNeurons) }}
               </span>
             </div>
             <n-progress
+              class="ai-stats-card-progress"
               type="line"
-              :percentage="Math.min(u.totalNeurons / 100, 100)"
-              :color="u.totalNeurons > 8000 ? '#e03050' : '#2080f0'"
-              :rail-color="'var(--app-border)'"
-              :height="10"
+              :percentage="usagePercent(u.totalNeurons)"
+              :color="progressColor(u.totalNeurons)"
+              :rail-color="'var(--app-border-input)'"
+              :height="8"
               :show-indicator="false"
-              style="margin: 8px 0;"
             />
             <div class="ai-stats-card-info">
-              <span>{{ u.totalNeurons.toLocaleString() }} / 10,000 {{ t('aiStats.neurons') }}</span>
+              <span class="ai-stats-card-info-used">{{ u.totalNeurons.toLocaleString() }}</span>
+              <span class="ai-stats-card-info-total">/ 10,000 {{ t('aiStats.neurons') }}</span>
             </div>
             <div v-if="u.models.length > 0" class="ai-stats-card-models">
               <div class="ai-stats-card-models-title">
                 {{ t('ai.modelDetail', { count: u.models.length }) }}
               </div>
-              <div
-                v-for="m in u.models"
-                :key="m.modelId"
-                class="ai-stats-model-row"
-              >
-                <span class="ai-stats-model-name" :title="m.modelId">{{ m.modelId.replace(/^@cf\//, '') }}</span>
-                <span class="ai-stats-model-meta">
-                  {{ m.neurons.toLocaleString() }} ⚡ · {{ m.requests.toLocaleString() }} {{ t('ai.requests') }}
-                </span>
+              <div class="ai-stats-model-list">
+                <div
+                  v-for="m in u.models"
+                  :key="m.modelId"
+                  class="ai-stats-model-row"
+                >
+                  <span class="ai-stats-model-name" :title="m.modelId">{{ m.modelId.replace(/^@cf\//, '') }}</span>
+                  <span class="ai-stats-model-meta">
+                    <span class="ai-stats-model-neurons">{{ m.neurons.toLocaleString() }}</span>
+                    <span class="ai-stats-model-requests">{{ m.requests.toLocaleString() }} {{ t('ai.requests') }}</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -101,6 +102,29 @@ const activeModelCount = computed(() => {
   return set.size;
 });
 
+/** 免费额度为 10,000 神经元/天，进度按百分比换算 */
+function usagePercent(neurons: number) {
+  return Math.min(Math.max((neurons || 0) / 100, 0), 100);
+}
+
+function formatPercent(neurons: number) {
+  const percent = usagePercent(neurons);
+  if (percent <= 0) return '0%';
+  if (percent < 1) return '<1%';
+  return `${Math.round(percent)}%`;
+}
+
+function progressColor(neurons: number) {
+  return neurons > 8000 ? 'var(--theme-error)' : 'var(--theme-primary)';
+}
+
+function badgeClass(neurons: number) {
+  if (neurons > 9500) return 'badge-danger';
+  if (neurons > 8000) return 'badge-warning';
+  if (neurons <= 0) return 'badge-idle';
+  return '';
+}
+
 async function fetchUsage() {
   loading.value = true;
   try {
@@ -125,11 +149,35 @@ onMounted(() => {
 
 <style scoped>
 .ai-stats-root {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 16px 20px;
+}
+
+.ai-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.ai-stats-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* n-spin 的包裹层要参与 flex 链，否则下面的高度传不到卡片滚动区 */
+.ai-stats-root :deep(.n-spin-container),
+.ai-stats-root :deep(.n-spin-content) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ai-stats-summary {
@@ -137,6 +185,16 @@ onMounted(() => {
   gap: 16px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* 统一的卡片外观：可见的描边 + 柔和投影，避免白底卡片在浅色页面里"糊"成一片 */
+.stats-summary-card,
+.ai-stats-card {
+  border: 1px solid var(--app-border-input);
+  border-radius: 10px;
+  background: var(--glass-surface-solid);
+  box-shadow: var(--glass-shadow);
 }
 
 .stats-summary-card {
@@ -144,9 +202,6 @@ onMounted(() => {
   flex-direction: column;
   gap: 4px;
   padding: 12px 20px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--n-color-modal);
   min-width: 140px;
 }
 
@@ -161,8 +216,13 @@ onMounted(() => {
   color: var(--app-text-primary);
 }
 
+/* 账户用量卡片：唯一的滚动区 */
 .ai-stats-cards {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   max-width: 1200px;
+  padding-right: 2px;
 }
 
 .ai-stats-empty {
@@ -175,22 +235,25 @@ onMounted(() => {
 }
 
 .ai-stats-card {
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
   padding: 14px 16px;
-  background: var(--n-color-modal);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .ai-stats-card:hover {
-  border-color: var(--n-border-color-hover, #2080f0);
+  border-color: var(--theme-primary);
+  box-shadow: var(--glass-shadow-hover);
 }
 
 .ai-stats-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .ai-stats-card-name {
@@ -205,11 +268,18 @@ onMounted(() => {
 
 .ai-stats-card-badge {
   font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  line-height: 16px;
+  padding: 0 8px;
+  border-radius: 9px;
+  background: var(--n-color-tag);
+  color: var(--app-text-secondary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge-idle {
   background: var(--n-color-tag);
   color: var(--app-text-muted);
-  flex-shrink: 0;
 }
 
 .badge-warning {
@@ -219,52 +289,84 @@ onMounted(() => {
 
 .badge-danger {
   background: rgba(224, 48, 80, 0.15);
-  color: #e03050;
+  color: var(--theme-error);
+}
+
+.ai-stats-card-progress {
+  margin-bottom: 8px;
+}
+
+.ai-stats-card-progress :deep(.n-progress-graph-line-rail) {
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .ai-stats-card-info {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: 12px;
   color: var(--app-text-muted);
 }
 
+.ai-stats-card-info-used {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 .ai-stats-card-models {
-  margin-top: 10px;
-  border-top: 1px solid var(--app-border);
-  padding-top: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--app-border-input);
 }
 
 .ai-stats-card-models-title {
   font-size: 11px;
   color: var(--app-text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+}
+
+.ai-stats-model-list {
+  max-height: 132px;
+  overflow-y: auto;
 }
 
 .ai-stats-model-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 3px 0;
+  gap: 8px;
+  padding: 4px 0;
   font-size: 12px;
-  border-bottom: 1px solid var(--app-border-light, rgba(0,0,0,0.04));
-}
-
-.ai-stats-model-row:last-child {
-  border-bottom: none;
 }
 
 .ai-stats-model-name {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--app-text-secondary);
-  margin-right: 8px;
 }
 
 .ai-stats-model-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   flex-shrink: 0;
-  color: var(--app-text-muted);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-stats-model-neurons {
+  font-weight: 500;
+  color: var(--app-text-primary);
+}
+
+.ai-stats-model-requests {
+  color: var(--app-text-muted);
 }
 
 @media (max-width: 768px) {

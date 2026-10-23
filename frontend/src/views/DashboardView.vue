@@ -97,18 +97,13 @@
       />
       <n-button size="small" type="primary" :loading="loadingLogs" @click="fetchLogs">{{ t('dashboard.query') }}</n-button>
     </n-space>
-    <div class="log-table-wrapper" style="flex: 1; min-height: 0; overflow: auto">
-
-        <n-data-table
-        :columns="logColumns"
-        :data="auditLogs"
-        :loading="loadingLogs"
-        size="small"
-        :bordered="false"
-        :scroll-x="scrollX"
-        :flex-height="true"
-      />
-    </div>
+    <AutoFitTable
+      class="dashboard-log-table"
+      :columns="logColumns"
+      :data="auditLogs"
+      :loading="loadingLogs"
+      :scroll-x="scrollX"
+    />
   </div>
 </template>
 
@@ -122,6 +117,7 @@ import { formatCN, formatCNShort } from '../utils/dateFormat';
 import CompactAccountCard from '../components/CompactAccountCard.vue';
 import { PeopleOutline, SparklesOutline, ConstructOutline, TimeOutline } from '@vicons/ionicons5';
 import { useUiTheme } from '../composables/useUiTheme';
+import AutoFitTable from '../components/AutoFitTable.vue';
 
 const { t } = useI18n();
 const { uiTheme } = useUiTheme();
@@ -283,13 +279,14 @@ const isMobile = computed(() => windowWidth.value < 640);
 
 const logColumns = computed<DataTableColumns<any>>(() => {
   if (isMobile.value) {
+    // 移动端：列宽保持可读并统一 ellipsis 不换行（此前列宽过窄导致内容折行、行高膨胀）
     return [
-      { title: t('dashboard.time'), key: 'created_at', width: 70, render: (row) => formatCNShort(row.created_at) },
-      { title: t('dashboard.account'), key: 'account_name', width: 65, render: (row) => row.account_name || '-' },
-      { title: t('dashboard.action'), key: 'action', width: 60, render: (row) => actionLabel(row.action) },
-      { title: t('dashboard.target'), key: 'target', width: 85, ellipsis: { tooltip: true } },
-      { title: t('dashboard.detail'), key: 'detail', width: 70, minWidth: 60, ellipsis: { tooltip: true } },
-      { title: t('dashboard.status'), key: 'status', width: 45, render: (row) => statusLabel(row.status) },
+      { title: t('dashboard.time'), key: 'created_at', width: 90, ellipsis: { tooltip: true }, render: (row) => formatCNShort(row.created_at) },
+      { title: t('dashboard.account'), key: 'account_name', width: 85, ellipsis: { tooltip: true }, render: (row) => row.account_name || '-' },
+      { title: t('dashboard.action'), key: 'action', width: 110, ellipsis: { tooltip: true }, render: (row) => actionLabel(row.action) },
+      { title: t('dashboard.target'), key: 'target', width: 130, ellipsis: { tooltip: true } },
+      { title: t('dashboard.detail'), key: 'detail', width: 100, minWidth: 80, ellipsis: { tooltip: true } },
+      { title: t('dashboard.status'), key: 'status', width: 60, render: (row) => statusLabel(row.status) },
     ];
   }
   return [
@@ -303,7 +300,7 @@ const logColumns = computed<DataTableColumns<any>>(() => {
 });
 
 const scrollX = computed(() => {
-  const colWidths = isMobile.value ? [70, 65, 60, 85, 70, 45] : [180, 120, 150, 150, 160, 80];
+  const colWidths = isMobile.value ? [90, 85, 110, 130, 100, 60] : [180, 120, 150, 150, 160, 80];
   return colWidths.reduce((a, b) => a + b, 0);
 });
 
@@ -334,6 +331,13 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
   flex: 1;
   min-height: 0;
+  border-radius: 12px;
+  background: var(--glass-card-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--glass-shadow);
+  padding: 10px 14px;
 }
 
 .card-grid-scroll {
@@ -341,6 +345,20 @@ onUnmounted(() => {
   overflow-y: auto;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
+  padding: 4px 2px;
+}
+
+/* 移动端：日志表格限高并内部滚动。
+   移动端页面是文档流布局（没有确定高度的父级），表格的 flex-height 失效，
+   会把全部日志行展开成上千像素，整页被撑得极长。 */
+@media (max-width: 768px) {
+  .autofit-table-wrapper.dashboard-log-table {
+    flex: 0 0 auto;
+    /* 视口高度减去上方内容（标题 / 额度卡片 / 日志筛选）与页脚，
+       让表格刚好占满剩余一屏并内部滚动 */
+    height: calc(100vh - 550px);
+    min-height: 240px;
+  }
 }
 
 :global(.n-data-table) {

@@ -98,6 +98,6 @@ function onTabChange(tab: string) {
 
 .ai-unified-tabs :deep(.n-tabs-nav) {
   padding: 0 16px;
-  border-bottom: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border-input);
 }
 </style>

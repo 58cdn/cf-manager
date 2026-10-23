@@ -329,10 +329,18 @@ function switchMode(m: Mode) {
 async function fetchAccounts() {
   try {
     const { data } = await accountsApi.getAll();
-    const accounts = (data.accounts || []).filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai')).map((a: any) => ({
-      label: a.name,
-      value: a.account_id || String(a.id),
-    }));
+    const seen = new Set<string>();
+    const accounts = (data.accounts || [])
+      .filter((a: any) => a.is_active && (a.enabled_features || '').includes('ai'))
+      .map((a: any) => ({
+        label: a.name,
+        value: a.account_id || String(a.id),
+      }))
+      .filter((opt: { value: string }) => {
+        if (!opt.value || seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      });
     accountOptions.value = [
       { label: '🤖 ' + t('ai.autoAssign'), value: 'auto' },
       ...accounts,
@@ -614,7 +622,7 @@ onMounted(() => {
   gap: 10px;
   overflow-y: auto;
   background: var(--app-bg-card);
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 8px;
   padding: 12px;
 }
@@ -686,7 +694,7 @@ onMounted(() => {
 .ai-image-main {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 8px;
   padding: 16px;
   background: var(--app-bg-secondary);
@@ -719,7 +727,7 @@ onMounted(() => {
 
 .ai-image-card {
   position: relative;
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border-input);
   border-radius: 8px;
   overflow: hidden;
   background: var(--app-bg-card);

@@ -2,12 +2,13 @@ import { computed, readonly, ref, watch } from 'vue';
 import { darkTheme, zhCN, dateZhCN, enUS, dateEnUS } from 'naive-ui';
 import type { ConfigProviderProps, GlobalThemeOverrides } from 'naive-ui';
 import i18n from '../i18n';
+import { useAppTheme, preferenceStorageUnavailable } from '../utils/theme';
 
 export type UiTheme = 'default' | 'verdant';
 const root = document.documentElement;
 const style = ref<UiTheme>(root.dataset.uiTheme === 'verdant' ? 'verdant' : 'default');
-const dark = ref(root.classList.contains('app-dark'));
-const storageUnavailable = ref(root.dataset.preferenceStorage === 'unavailable');
+const { isDark: dark, themeOverrides: defaultOverrides, setThemeMode, applyThemeToDocument } = useAppTheme();
+const storageUnavailable = preferenceStorageUnavailable;
 
 function persist(key: string, value: string) {
   try {
@@ -20,7 +21,7 @@ function persist(key: string, value: string) {
 
 const theme = computed(() => dark.value ? darkTheme : null);
 const themeOverrides = computed<GlobalThemeOverrides | undefined>(() => {
-  if (style.value === 'default') return undefined;
+  if (style.value === 'default') return defaultOverrides.value;
   const isDark = dark.value;
   const primary = isDark ? '#63d69b' : '#16794b';
   const surface = isDark ? '#1b2433' : '#ffffff';
@@ -55,17 +56,16 @@ export const uiConfig = computed<ConfigProviderProps>(() => ({
 
 watch([style, dark], () => {
   root.dataset.uiTheme = style.value;
-  root.classList.toggle('app-dark', dark.value);
+  applyThemeToDocument();
   root.style.backgroundColor = style.value === 'verdant' ? (dark.value ? '#111827' : '#f5f7f9') : '';
-}, { flush: 'sync' });
+}, { flush: 'sync', immediate: true });
 
 function setUiTheme(value: string) {
   style.value = value === 'verdant' ? 'verdant' : 'default';
   persist('cf-manager.ui-theme', style.value);
 }
 function toggleDark() {
-  dark.value = !dark.value;
-  persist('darkMode', String(dark.value));
+  setThemeMode(dark.value ? 'light' : 'dark');
 }
 
 export function useUiTheme() {

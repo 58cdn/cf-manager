@@ -1,24 +1,34 @@
 <template>
-  <div class="page-view">
-    <n-h2>{{ t('storage.title') }}</n-h2>
-    <n-space align="center" style="margin-bottom: 16px">
-     <span>{{ t('storage.accountLabel') }}</span>
-      <n-select v-model:value="selectedAccount" :options="accountOptions" :render-label="renderAccountLabel" filterable :placeholder="t('storage.searchAccount')" style="width: 200px; max-width: 60vw" size="small" @update:value="onAccountChange" />
-   </n-space>
+    <div class="page-view">
+    <!-- 顶层第 1 行：左侧页面标题 + 紧随账号下拉切换（同行靠左显示） -->
+    <n-space align="center" :size="16" class="storage-header-row">
+      <n-h2 style="margin: 0;">{{ t('storage.title') }}</n-h2>
+      <div class="storage-account-selector">
+        <span class="account-selector-label">{{ t('storage.accountLabel') }}</span>
+        <n-select v-model:value="selectedAccount" :options="accountOptions" :render-label="renderAccountLabel" filterable :placeholder="t('storage.searchAccount')" style="width: 200px; max-width: 60vw" size="small" @update:value="onAccountChange" />
+      </div>
+    </n-space>
 
-    <n-tabs v-model:value="activeTab" type="line">
+    <!-- 顶层第 2 行：Tab 标签栏 + 右侧专属操作区（通过 #suffix 原生嵌入） -->
+    <n-tabs
+      v-model:value="activeTab"
+      type="line"
+      class="storage-tabs"
+      pane-wrapper-style="display: flex; flex-direction: column; flex: 1 1 0%; min-height: 0; height: 100%;"
+      pane-style="display: flex; flex-direction: column; flex: 1 1 0%; min-height: 0; height: 100%;"
+    >
       <!-- ============ KV Tab ============ -->
       <n-tab-pane name="kv" :tab="t('storage.kv')">
-        <n-grid :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
+        <n-grid class="storage-grid-container" :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
           <n-gi span="24 m:6">
-            <n-card :title="t('storage.namespace')" size="small">
+            <n-card :title="t('storage.namespace')" size="small" class="storage-left-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px; overflow-y: auto;">
               <template #header-extra>
                 <n-button size="tiny" type="primary" @click="handleCreateKvNs">{{ t('storage.create') }}</n-button>
               </template>
               <n-spin :show="kvNsLoading">
                 <n-list hoverable clickable>
                   <n-list-item v-for="ns in kvNamespaces" :key="ns.id"
-                    :style="{ background: selectedKvNs?.id === ns.id ? 'rgba(24,160,88,0.1)' : '' }">
+                    :style="{ background: selectedKvNs?.id === ns.id ? 'var(--theme-primary-suppl)' : '' }">
                     <div style="display: flex; justify-content: space-between; align-items: center">
                       <span style="cursor: pointer; flex: 1" @click="selectKvNamespace(ns)">{{ ns.title || ns.id }}</span>
                       <n-button v-if="!isDemoSelected" size="tiny" type="error" quaternary @click.stop="handleDeleteKvNs(ns)">×</n-button>
@@ -30,14 +40,14 @@
             </n-card>
           </n-gi>
           <n-gi span="24 m:18">
-            <n-card :title="selectedKvNs ? `Keys - ${selectedKvNs.title || selectedKvNs.id}` : 'Keys'" size="small">
+            <n-card :title="selectedKvNs ? `Keys - ${selectedKvNs.title || selectedKvNs.id}` : 'Keys'" size="small" class="storage-right-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px;">
               <template #header-extra>
                 <n-space>
                   <n-input v-model:value="kvPrefix" :placeholder="t('storage.prefixFilter')" size="small" style="width: 200px" @keyup.enter="() => loadKvKeys()" clearable />
                   <n-button size="small" type="primary" @click="showKvEditor = true" :disabled="!selectedKvNs">{{ t('storage.create') }}</n-button>
                 </n-space>
               </template>
-              <n-data-table :columns="kvColumns" :data="kvKeys" :loading="kvKeysLoading" size="small" :bordered="false" :scroll-x="500" />
+              <AutoFitTable style="flex: 1 1 0%; min-height: 0; margin-top: 0;" :columns="kvColumns" :data="kvKeys" :loading="kvKeysLoading" :scroll-x="500" />
               <n-space v-if="kvCursor" justify="center" style="margin-top: 12px">
                 <n-button size="small" @click="loadKvKeys(kvCursor)">{{ t('storage.loadMore') }}</n-button>
               </n-space>
@@ -48,50 +58,72 @@
 
       <!-- ============ D1 Tab ============ -->
       <n-tab-pane name="d1" :tab="t('storage.d1')">
-        <n-grid :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
-          <n-gi span="24 m:6">
-            <n-card :title="t('storage.database')" size="small">
+        <!-- D1 操作栏：左侧整齐排列数据库选择、新建与删除 -->
+        <div class="d1-toolbar-row">
+          <span style="font-size: 13px; font-weight: 500; color: var(--app-text-secondary); white-space: nowrap;">{{ t('storage.database') }}：</span>
+          <n-select
+            v-model:value="selectedD1DbId"
+            :options="d1DbSelectOptions"
+            :placeholder="t('storage.searchAccount', '选择数据库...')"
+            size="small"
+            filterable
+            style="width: 220px; max-width: 50vw;"
+            @update:value="onD1DbSelectChange"
+          />
+          <n-button size="small" type="primary" secondary @click="handleCreateD1Db">
+            {{ t('storage.create') }}
+          </n-button>
+          <n-popconfirm v-if="selectedD1Db && !isDemoSelected" @positive-click="handleDeleteD1Db(selectedD1Db)">
+            <template #trigger>
+              <n-button size="small" type="error" quaternary>{{ t('common.delete') }}</n-button>
+            </template>
+            {{ t('storage.msg.deleteDatabaseConfirm', { name: selectedD1Db.name }) }}
+          </n-popconfirm>
+        </div>
+
+        <n-grid class="storage-grid-container" :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
+          <!-- 左侧：纯粹的数据表列表卡片（标准 Naive UI 布局，绝不挤压错位） -->
+          <n-gi span="24 m:6" class="storage-grid-col">
+            <n-card
+              :title="selectedD1Db ? `${t('storage.tables')} (${d1Tables.length})` : t('storage.tables')"
+              size="small"
+              class="storage-left-card"
+              content-style="display: flex; flex-direction: column; flex: 1 1 0%; min-height: 0; padding: 12px; overflow: hidden;"
+            >
               <template #header-extra>
-                <n-button size="tiny" type="primary" @click="handleCreateD1Db">{{ t('storage.create') }}</n-button>
+                <n-button v-if="selectedD1Db" size="tiny" type="primary" @click="showD1CreateTable = true">{{ t('storage.createTable') }}</n-button>
               </template>
-              <n-spin :show="d1DbLoading">
-                <n-list hoverable clickable>
-                  <n-list-item v-for="db in d1Databases" :key="db.uuid || db.id"
-                    :style="{ background: selectedD1Db?.uuid === db.uuid ? 'rgba(24,160,88,0.1)' : '' }">
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <span style="cursor: pointer; flex: 1" @click="selectD1Database(db)">{{ db.name }}</span>
-                      <n-button v-if="!isDemoSelected" size="tiny" type="error" quaternary @click.stop="handleDeleteD1Db(db)">×</n-button>
+              <div class="storage-list-scroll">
+                <n-spin :show="d1DbLoading">
+                <n-list v-if="selectedD1Db && d1Tables.length" hoverable clickable size="small">
+                  <n-list-item
+                    v-for="table in d1Tables"
+                    :key="table.name"
+                    :style="{ background: activeTableName === table.name ? 'var(--theme-primary-suppl)' : '' }"
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                      <span style="cursor: pointer; flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" @click="handleTableClick(table.name)">{{ table.name }}</span>
+                      <n-button size="tiny" quaternary @click.stop="openD1TableSchema(table.name)" :title="t('storage.viewSchema')">⚙</n-button>
                     </div>
                   </n-list-item>
                 </n-list>
-                <n-empty v-if="!d1Databases.length && !d1DbLoading" :description="t('storage.noDatabase')" />
+                <n-empty v-else-if="!selectedD1Db" :description="t('storage.selectDbHint')" style="margin: 48px 0;" />
+                <n-empty v-else :description="t('storage.noTables')" style="margin: 48px 0;" />
               </n-spin>
-            </n-card>
-            <n-card v-if="selectedD1Db" :title="t('storage.tables')" size="small" style="margin-top: 12px">
-              <template #header-extra>
-                <n-button size="tiny" type="primary" @click="showD1CreateTable = true">{{ t('storage.createTable') }}</n-button>
-              </template>
-              <n-list hoverable clickable>
-                <n-list-item v-for="table in d1Tables" :key="table.name">
-                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
-                    <span style="cursor: pointer; flex: 1" @click="d1Sql = `SELECT * FROM ${table.name} LIMIT 100`; executeD1()">{{ table.name }}</span>
-                    <n-button size="tiny" quaternary @click.stop="openD1TableSchema(table.name)" :title="t('storage.viewSchema')">⚙</n-button>
-                  </div>
-                </n-list-item>
-              </n-list>
-              <n-empty v-if="!d1Tables.length" :description="t('storage.noTables')" />
+              </div>
             </n-card>
           </n-gi>
-          <n-gi span="24 m:18">
-            <n-card :title="t('storage.sqlQuery')" size="small">
-              <n-input v-model:value="d1Sql" type="textarea" :rows="4" :placeholder="t('storage.sqlPlaceholder')" style="margin-bottom: 12px; font-family: monospace;" />
-              <n-space>
+          <n-gi span="24 m:18" class="storage-grid-col">
+            <n-card :title="t('storage.sqlQuery')" size="small" class="storage-right-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px;">
+              <n-input v-model:value="d1Sql" type="textarea" :rows="3" :placeholder="t('storage.sqlPlaceholder')" style="margin-bottom: 10px; font-family: monospace; flex-shrink: 0;" />
+              <n-space style="margin-bottom: 10px; flex-shrink: 0;">
                 <n-button type="primary" size="small" @click="executeD1" :loading="d1Loading" :disabled="!selectedD1Db || !d1Sql">{{ t('storage.execute') }}</n-button>
                 <n-checkbox v-model:checked="d1AllowWrite" size="small" :disabled="isDemoSelected">{{ t('storage.allowWrite') }}</n-checkbox>
               </n-space>
-              <div v-if="d1Result" style="margin-top: 16px">
-                <n-text depth="3" style="font-size: 12px">{{ t('storage.rowsRead', { count: d1Result.meta?.rows_read || 0 }) }} {{ t('storage.rowsWritten', { count: d1Result.meta?.rows_written || 0 }) }} {{ t('storage.duration', { ms: d1Result.meta?.duration || 0 }) }}</n-text>
-                <n-data-table v-if="d1ResultColumns.length" :columns="d1ResultColumns" :data="d1Result.results || []" size="small" :bordered="false" style="margin-top: 8px" :max-height="400" virtual-scroll :scroll-x="600" />
+              <div v-if="d1Result" style="flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column;">
+                <n-text depth="3" style="font-size: 12px; margin-bottom: 6px; flex-shrink: 0;">{{ t('storage.rowsRead', { count: d1Result.meta?.rows_read || 0 }) }} {{ t('storage.rowsWritten', { count: d1Result.meta?.rows_written || 0 }) }} {{ t('storage.duration', { ms: d1Result.meta?.duration || 0 }) }}</n-text>
+                <AutoFitTable v-if="d1ResultColumns.length" :columns="d1ResultColumns" :data="d1Result.results || []" style="flex: 1 1 0%; min-height: 0; margin-top: 0;" :scroll-x="d1ScrollX" />
+                <n-empty v-else-if="!d1ResultColumns.length && !d1Result.error" :description="t('storage.executedNoResult')" style="margin: auto;" />
               </div>
             </n-card>
           </n-gi>
@@ -100,16 +132,16 @@
 
       <!-- ============ R2 Tab ============ -->
       <n-tab-pane v-if="r2Available" name="r2" :tab="t('storage.r2')">
-        <n-grid :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
+        <n-grid class="storage-grid-container" :cols="24" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
           <n-gi span="24 m:6">
-            <n-card :title="t('storage.bucket')" size="small">
+            <n-card :title="t('storage.bucket')" size="small" class="storage-left-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px; overflow-y: auto;">
               <template #header-extra>
                 <n-button size="tiny" type="primary" @click="handleCreateR2Bucket">{{ t('storage.create') }}</n-button>
               </template>
               <n-spin :show="r2BucketLoading">
                 <n-list hoverable clickable>
                   <n-list-item v-for="b in r2Buckets" :key="b.name"
-                    :style="{ background: selectedR2Bucket?.name === b.name ? 'rgba(24,160,88,0.1)' : '' }">
+                    :style="{ background: selectedR2Bucket?.name === b.name ? 'var(--theme-primary-suppl)' : '' }">
                     <div style="display: flex; justify-content: space-between; align-items: center">
                       <span style="cursor: pointer; flex: 1" @click="selectR2Bucket(b)">{{ b.name }}</span>
                       <n-button v-if="!isDemoSelected" size="tiny" type="error" quaternary @click.stop="handleDeleteR2Bucket(b)">×</n-button>
@@ -121,7 +153,7 @@
             </n-card>
           </n-gi>
           <n-gi span="24 m:18">
-            <n-card :title="selectedR2Bucket ? `${t('storage.files')} - ${selectedR2Bucket.name}` : t('storage.files')" size="small">
+            <n-card :title="selectedR2Bucket ? `${t('storage.files')} - ${selectedR2Bucket.name}` : t('storage.files')" size="small" class="storage-right-card" content-style="display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px;">
               <template #header-extra>
                 <n-button size="small" type="primary" @click="showR2Upload = true" :disabled="!selectedR2Bucket">{{ t('storage.upload') }}</n-button>
               </template>
@@ -132,7 +164,7 @@
                   {{ part }}
                 </n-breadcrumb-item>
               </n-breadcrumb>
-              <n-data-table :columns="r2Columns" :data="r2DisplayItems" :loading="r2Loading" size="small" :bordered="false" :scroll-x="600" />
+              <AutoFitTable style="flex: 1 1 0%; min-height: 0; margin-top: 0;" :columns="r2Columns" :data="r2DisplayItems" :loading="r2Loading" :scroll-x="600" />
             </n-card>
           </n-gi>
         </n-grid>
@@ -272,6 +304,7 @@
 <script setup lang="ts">
 import { ref, computed, h, onMounted, onBeforeUnmount, watch } from 'vue';
 import { NButton, NSpace, NInput, NSelect, NCheckbox, NTag, useMessage, useDialog } from 'naive-ui';
+import AutoFitTable from '../components/AutoFitTable.vue';
 import type { DataTableColumns } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { storageApi } from '../api/storage';
@@ -336,10 +369,45 @@ async function checkR2Available() {
     if (activeTab.value === 'r2') activeTab.value = 'kv';
     return;
   }
-  // 空值 = 未探测，保留默认值 true
+  // 空值 = 未探测：显式复位为 true。
+  // 若不复位，切换到「未探测」账号时 r2Available 会沿用上一个账号的值，
+  // 导致上一个账号是 '-r2'（禁用 R2）时，R2 tab 在新账号下仍然被隐藏。
+  r2Available.value = true;
+}
+
+/**
+ * 清空所有「账号级」缓存：列表、选中项、游标/前缀、查询结果。
+ *
+ * 页面按 `!xxx.value.length` 做惰性加载（见下方 watch(activeTab)），
+ * 若切换账号时保留上一个账号的列表，切回该 tab 会因列表非空而跳过重新加载，
+ * 于是既显示旧账号的记录，又会把旧账号的资源 ID 配新账号的凭据发请求
+ * （旧资源在新账号下不存在）→ 报错或返回空数据。
+ */
+function resetStorageCaches() {
+  // KV
+  kvNamespaces.value = [];
+  selectedKvNs.value = null;
+  kvKeys.value = [];
+  kvCursor.value = '';
+  // D1
+  d1Databases.value = [];
+  selectedD1Db.value = null;
+  d1Tables.value = [];
+  d1Result.value = null;
+  d1SchemaTable.value = '';
+  d1SchemaData.value = [];
+  // R2
+  r2Buckets.value = [];
+  selectedR2Bucket.value = null;
+  r2Objects.value = [];
+  r2Prefixes.value = [];
+  r2Prefix.value = '';
 }
 
 async function onAccountChange() {
+  // 先清缓存再判断 R2 可用性：checkR2Available 可能把 activeTab 从 r2 切到 kv，
+  // 因此必须在它之后再按最终 tab 触发加载。
+  resetStorageCaches();
   await checkR2Available();
   if (activeTab.value === 'kv') loadKvNamespaces();
   else if (activeTab.value === 'd1') loadD1Databases();
@@ -493,17 +561,41 @@ const kvColumns = computed<DataTableColumns<any>>(() => [
 const d1Databases = ref<any[]>([]);
 const d1DbLoading = ref(false);
 const selectedD1Db = ref<any>(null);
+const selectedD1DbId = ref<string | null>(null);
 const d1Tables = ref<any[]>([]);
 const d1Sql = ref('');
 const d1AllowWrite = ref(false);
 const d1Loading = ref(false);
 const d1Result = ref<any>(null);
+const activeTableName = ref<string>('');
+
+function handleTableClick(tableName: string) {
+  activeTableName.value = tableName;
+  d1Sql.value = `SELECT * FROM ${tableName} LIMIT 100;`;
+  executeD1();
+}
+
+const d1DbSelectOptions = computed(() =>
+  d1Databases.value.map(db => ({ label: db.name, value: db.uuid || db.id }))
+);
+
+function onD1DbSelectChange(val: string) {
+  const target = d1Databases.value.find(db => (db.uuid || db.id) === val);
+  if (target) {
+    selectD1Database(target);
+  }
+}
 
 const d1ResultColumns = computed<DataTableColumns<any>>(() => {
   if (!d1Result.value?.results?.length) return [];
   return Object.keys(d1Result.value.results[0]).map(key => ({
-    title: key, key, ellipsis: { tooltip: true }, width: 150,
+    title: key, key, ellipsis: { tooltip: true }, width: 160,
   }));
+});
+
+const d1ScrollX = computed(() => {
+  const count = d1ResultColumns.value.length;
+  return Math.max(600, count * 160);
 });
 
 async function handleDeleteD1Db(db: any) {
@@ -534,12 +626,17 @@ async function loadD1Databases() {
   try {
     const { data } = await storageApi.getD1Databases(selectedAccount.value);
     d1Databases.value = Array.isArray(data) ? data : [];
+    if (d1Databases.value.length > 0 && !selectedD1Db.value) {
+      selectD1Database(d1Databases.value[0]);
+    }
   } catch { d1Databases.value = []; }
   finally { d1DbLoading.value = false; }
 }
 
 async function selectD1Database(db: any) {
   selectedD1Db.value = db;
+  selectedD1DbId.value = db.uuid || db.id;
+  activeTableName.value = '';
   try {
     const { data } = await storageApi.getD1Tables(selectedAccount.value!, db.uuid || db.id);
     d1Tables.value = Array.isArray(data) ? data : [];
@@ -912,10 +1009,10 @@ const r2Columns = computed<DataTableColumns<any>>(() => [
     title: t('common.name'), key: 'name', width: 180, minWidth: 100, ellipsis: { tooltip: true },
     render: (row: any) => {
       if (row.isFolder) {
-        return h('a', { style: 'cursor:pointer;color:#2080f0', onClick: () => navigateR2Folder(row.key) }, `📁 ${row.name}`);
+        return h('a', { style: 'cursor:pointer;color:var(--theme-primary)', onClick: () => navigateR2Folder(row.key) }, `📁 ${row.name}`);
       }
       if (isImageType(row.contentType)) {
-        return h('a', { style: 'cursor:pointer;color:#2080f0', onClick: () => handlePreviewR2(row) }, row.name);
+        return h('a', { style: 'cursor:pointer;color:var(--theme-primary)', onClick: () => handlePreviewR2(row) }, row.name);
       }
       return row.name;
     },
@@ -944,9 +1041,11 @@ const r2Columns = computed<DataTableColumns<any>>(() => [
 watch(isDemoSelected, (demo) => { if (demo) d1AllowWrite.value = false; });
 watch(activeTab, (tab) => {
   if (!selectedAccount.value) return;
-  if (tab === 'kv' && !kvNamespaces.value.length) loadKvNamespaces();
-  else if (tab === 'd1' && !d1Databases.value.length) loadD1Databases();
-  else if (tab === 'r2' && !r2Buckets.value.length) loadR2Buckets();
+  // 加载中（!xxxLoading）时不再重复触发：切换账号时 checkR2Available 可能改写
+  // activeTab，onAccountChange 已主动加载一次，避免同一次切换发出两个相同请求。
+  if (tab === 'kv' && !kvNamespaces.value.length && !kvNsLoading.value) loadKvNamespaces();
+  else if (tab === 'd1' && !d1Databases.value.length && !d1DbLoading.value) loadD1Databases();
+  else if (tab === 'r2' && !r2Buckets.value.length && !r2BucketLoading.value) loadR2Buckets();
 });
 
 onMounted(async () => {
@@ -964,3 +1063,174 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.storage-header-row {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.storage-account-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-selector-label {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+}
+
+.storage-tabs {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.storage-tabs :deep(.n-tab-pane) {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* D1 顶部操作栏：数据库标签、下拉选择与新建/删除按钮单行横向排列。
+   此前该容器没有布局样式，n-select 作为块级元素会独占一行，
+   导致「数据库：/ 下拉框 / 新建 删除」被拆成三行、高度浪费。 */
+.d1-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.storage-grid-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100% !important;
+  /* 使用 minmax(0, 1fr)：行高严格受容器高度约束，
+     避免表格等内容的最小高度把 grid 行撑高后溢出屏幕 */
+  grid-template-rows: minmax(0, 1fr) !important;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 所有 grid 子项（n-gi 渲染出的包裹层）统一允许收缩，防止内容把整页撑出视口。
+   注意：Naive UI 的 grid item 根元素不自带类名，这里用 :deep(*) 直接命中 */
+.storage-grid-container > :deep(*) {
+  height: 100% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.storage-grid-col {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.storage-left-card,
+.storage-right-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.storage-list-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.storage-list-scroll :deep(.n-spin-container) {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.storage-list-scroll :deep(.n-spin-content) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 空状态：Naive 的 n-empty 自带 48px 下外边距，在 overflow:auto 的列表容器里会被算进
+   scrollHeight，导致内容并未超出也出现滚动条。改用 auto margin 居中，不产生溢出。 */
+.storage-list-scroll :deep(.n-empty),
+.storage-left-card :deep(.n-card__content .n-empty) {
+  margin: auto;
+}
+
+.storage-left-card :deep(.n-card__content),
+.storage-right-card :deep(.n-card__content) {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.d1-section-db {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.d1-section-tables {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--app-border-input);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.d1-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.d1-section-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--app-text-heading);
+}
+
+.d1-section-body {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.storage-right-card :deep(.n-card__content) {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+</style>

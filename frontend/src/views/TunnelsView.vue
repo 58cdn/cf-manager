@@ -3,7 +3,7 @@
     <n-tabs type="line" animated>
       <!-- ============ 隧道管理 ============ -->
       <n-tab-pane name="tunnels" :tab="t('tunnels.tunnelManagement')">
-        <n-space vertical>
+        <div class="tunnel-tab-content">
           <n-space align="center">
             <n-select
               v-model:value="selectedAccountId"
@@ -17,20 +17,18 @@
             <n-button size="small" @click="loadAccounts" :loading="loadingAccounts">{{ t('tunnels.refresh') }}</n-button>
           </n-space>
 
-          <n-data-table
+          <AutoFitTable
             :columns="tunnelColumns"
             :data="tunnels"
             :loading="loadingTunnels"
-            size="small"
-            :bordered="false"
             :scroll-x="600"
           />
-        </n-space>
+        </div>
       </n-tab-pane>
 
       <!-- ============ 规则引擎 ============ -->
       <n-tab-pane name="rules-engine" :tab="t('tunnels.rulesEngine')">
-        <n-space vertical>
+        <div class="tunnel-tab-content">
           <n-space align="center">
             <n-select
               v-model:value="selectedDomain"
@@ -54,15 +52,13 @@
           <n-alert v-if="isAccountLevelPhase" type="info" :bordered="false" style="margin-top: 4px">
             <span v-html="DOMPurify.sanitize(t('tunnels.accountLevelHint'))"></span>
           </n-alert>
-          <n-data-table
+          <AutoFitTable
             :columns="ruleColumns"
             :data="rules"
             :loading="loadingRules"
-            size="small"
-            :bordered="false"
             :scroll-x="600"
           />
-        </n-space>
+        </div>
       </n-tab-pane>
     </n-tabs>
 
@@ -351,6 +347,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, h, onMounted } from 'vue';
+import AutoFitTable from '../components/AutoFitTable.vue';
 import { useI18n } from 'vue-i18n';
 import DOMPurify from 'dompurify';
 import { NButton, NSpace, NTag, NPopconfirm } from 'naive-ui';
@@ -1140,6 +1137,17 @@ onMounted(async () => {
   await loadDomains();
 });
 </script>
+
+<style scoped>
+.tunnel-tab-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+}
+</style>
 
 <style scoped>
 .page-view {

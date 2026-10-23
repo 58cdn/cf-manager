@@ -4,6 +4,15 @@
       <n-message-provider>
         <n-notification-provider>
           <n-loading-bar-provider>
+            <!-- 炫彩环境流体光晕背景层（磨砂折射必备底板） -->
+            <div v-if="uiTheme === 'default'" class="ambient-glow-layer" aria-hidden="true">
+              <div class="ambient-orb orb-1"></div>
+              <div class="ambient-orb orb-2"></div>
+              <div class="ambient-orb orb-3"></div>
+              <div class="ambient-orb orb-4"></div>
+              <div class="ambient-orb orb-5"></div>
+            </div>
+
             <!-- 初始加载 -->
             <div v-if="authChecking" style="display: flex; justify-content: center; align-items: center; height: 100vh">
               <n-spin size="large" />
@@ -12,7 +21,7 @@
             <!-- 登录界面 -->
             <div v-else-if="showLogin" class="login-page" style="display: flex; justify-content: center; align-items: center; height: 100vh; padding: 16px">
               <div class="login-preferences">
-                <ThemeSelector />
+                <ThemeSelector /><ThemeSettingsPopover v-if="uiTheme === 'default'" />
                 <n-button quaternary circle :aria-label="t(isDark ? 'appearance.light' : 'appearance.dark')" @click="toggleTheme"><template #icon><n-icon :component="isDark ? SunnyOutline : MoonOutline" /></template></n-button>
                 <n-dropdown trigger="click" :options="languageOptions" @select="handleLanguageChange"><n-button quaternary circle :aria-label="t('appearance.language')"><template #icon><n-icon :component="LanguageOutline" /></template></n-button></n-dropdown>
               </div>
@@ -47,7 +56,7 @@
                   </n-button>
                   <span v-if="uiTheme === 'verdant'" class="current-section">{{ navItems.find(item => item.key === activeMenuKey)?.label }}</span>
                   <n-space>
-                    <ThemeSelector />
+                    <ThemeSelector /><ThemeSettingsPopover v-if="uiTheme === 'default'" />
                     <n-dropdown trigger="click" :options="languageOptions" @select="handleLanguageChange">
                       <n-button quaternary circle :aria-label="t('appearance.language')">
                         <template #icon><n-icon :component="LanguageOutline" /></template>
@@ -59,8 +68,12 @@
                     <n-button v-if="isAuthenticated" quaternary size="small" @click="handleLogout">{{ t('app.logout') }}</n-button>
                   </n-space>
                 </n-layout-header>
-                <n-layout-content class="workspace-content" content-style="padding: 24px; height: 100%; box-sizing: border-box;" style="height: calc(100vh - 48px - 32px); overflow-y: auto">
-                  <router-view />
+                <n-layout-content class="workspace-content" content-style="padding: 20px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column;" style="height: calc(100vh - 48px - 32px); overflow-y: hidden;">
+                  <router-view v-slot="{ Component }">
+                    <transition name="page-fade-slide" mode="out-in">
+                      <component :is="Component" />
+                    </transition>
+                  </router-view>
                 </n-layout-content>
                 <n-layout-footer bordered style="height: 32px; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; font-size: 12px; color: #999">
                   <span v-if="appVersion">CF Manager v{{ appVersion }}<template v-if="appCommit"> · {{ appCommit }}</template></span>
@@ -71,7 +84,11 @@
             <!-- Mobile Layout -->
             <div v-else class="mobile-layout">
               <div class="mobile-content">
-                <router-view />
+                <router-view v-slot="{ Component }">
+                  <transition name="page-fade-slide" mode="out-in">
+                    <component :is="Component" />
+                  </transition>
+                </router-view>
                 <div class="app-footer" v-if="appVersion">CF Manager v{{ appVersion }}<template v-if="appCommit"> · {{ appCommit }}</template></div>
               </div>
 
@@ -99,7 +116,7 @@
                       </n-button>
                     </div>
                   </div>
-                  <div class="mobile-theme-row"><ThemeSelector /><n-button quaternary size="small" @click="closeNavigation">{{ t('common.close') }}</n-button></div>
+                  <div class="mobile-theme-row"><ThemeSelector /><ThemeSettingsPopover v-if="uiTheme === 'default'" /><n-button quaternary size="small" @click="closeNavigation">{{ t('common.close') }}</n-button></div>
                   <div class="fab-panel-body">
                     <div class="fab-grid">
                       <button
@@ -162,6 +179,7 @@ import { message as globalMessage } from './utils/discreteApi';
 import { uiConfig, useUiTheme } from './composables/useUiTheme';
 import ThemeSelector from './components/ThemeSelector.vue';
 import { saveLocale, type Locale } from './i18n';
+import ThemeSettingsPopover from './components/ThemeSettingsPopover.vue';
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -406,8 +424,9 @@ function handleMenuClick(key: string) {
 .page-view {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   height: 100%;
+  min-height: 0;
+  flex: 1 1 0%;
 }
 
 /* FAB Button */
@@ -418,14 +437,14 @@ function handleMenuClick(key: string) {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #18a058;
+  background: var(--theme-primary, #f38020);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 1100;
-  box-shadow: 0 4px 16px rgba(24, 160, 88, 0.4);
+  box-shadow: 0 4px 16px var(--theme-primary-suppl, rgba(243, 128, 32, 0.4));
   transition: transform 0.2s ease, background 0.2s, box-shadow 0.2s;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -535,20 +554,20 @@ function handleMenuClick(key: string) {
 }
 
 .fab-item:hover {
-  background: rgba(24, 160, 88, 0.06);
+  background: var(--theme-primary-suppl);
 }
 
 .fab-item--active {
-  background: rgba(24, 160, 88, 0.12);
-  color: #18a058;
+  background: var(--theme-primary-suppl);
+  color: var(--theme-primary);
 }
 
 .fab-panel--dark .fab-item:hover {
-  background: rgba(24, 160, 88, 0.12);
+  background: var(--theme-primary-suppl);
 }
 
 .fab-panel--dark .fab-item--active {
-  background: rgba(24, 160, 88, 0.2);
+  background: var(--theme-primary-suppl);
 }
 
 .fab-item-label {

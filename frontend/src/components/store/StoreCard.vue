@@ -17,7 +17,7 @@
       >
         <n-icon
           :component="faved ? Star : StarOutline"
-          :color="faved ? '#f0a020' : 'var(--text-color-3)'"
+          :color="faved ? 'var(--theme-warning)' : 'var(--text-color-3)'"
           :size="18"
         />
       </n-button>
@@ -132,6 +132,15 @@ function bindingTagType(type: CatalogBindingType) {
 <style scoped>
 .store-card {
   height: 100%;
+  border-radius: 12px;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.store-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--glass-shadow-hover) !important;
+  border-color: var(--theme-primary-hover) !important;
 }
 .cover-thumb {
   display: inline-flex;

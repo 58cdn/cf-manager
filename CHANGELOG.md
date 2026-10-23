@@ -1,6 +1,80 @@
 # Changelog
 
-## [2.3.0] - 2026-09-17
+## [2.4.3] - 2026-10-23
+
+### Fork 同步
+
+- 同步上游 2.3.0–2.4.2；保留青岚主题、偏好持久化、移动端键盘导航和 `demo_mode=false`。
+- 共用深浅色状态，默认主题接入上游主题色与磨砂设置；存储不可用时继续支持会话内切换。
+- CI 覆盖 fork 默认分支 `main` 与同步候选分支。
+- 付费模型缓存优先使用调用名称，修复 backend 与 Worker 对同时含 ID / name 的模型处理不一致；补充双端与主题兼容回归测试。
+
+## [2.4.2] - 2026-10-14
+
+### 🔧 CI
+
+- **部署工作流支持 Cloudflare API Token（closes #40）**：新增 `deploy-cf-token.yml`（Environment Secrets 方式）与 `actions/deploy-cf/cf-auth.sh`，composite action 的5 处 REST 调用改为按凭据自动择一（`CLOUDFLARE_API_TOKEN` → Bearer，否则回退 legacy `X-Auth-*`）。seed 按 `accounts.auth_type` 的 CHECK 约束分别写入 `api_token` 或 `api_key + email`；`demo_mode` 在 token 场景改按 `accounts.account_id` 匹配（原依赖邮箱，token 无邮箱）。未配置 Token 时行为与改动前完全一致。
+- **`deploy-cf.yml` 支持凭据二选一**：`cf_api_token`（推荐）或 `cf_global_key` + `cf_email`（legacy），都未填写时在第 2 步 `exit 1`，避免后续步骤带着空凭据发出必然 401 的请求。
+- **部署链路三个隐患修复**：输入不再直接插值进 shell 控制流（改用 `$VAR` 引用，消除注入面）；仅在非空时导出认证变量，避免 wrangler 读到空值；D1 ID 解析失败时提前中止，不再把 `database_id = ""` 静默写入 `wrangler.toml`。
+- **文档补充 API Token 部署方式与权限清单**：`README.md` / `README.zh-CN.md` / `docs/deploy.md` 改以 API Token 为推荐路径，新增 5 个 Account 级权限的用途对照表、官方模板 `Edit Cloudflare Workers` 建议，以及 `full_wipe` 种子账户的 DNS 权限限制说明。
+- 无数据库变更，无需迁移。
+
+## [2.4.1] - 2026-09-29
+
+### 🐞 修复与优化
+
+- **表格底色体系统一为「实色面板」（AutoFitTable）**：
+  - 数据表格不再跟随页面底色：容器 / 单元格 / 固定列 / 表头 / 分页栏压在同一块实色上（暗色 `#26292f`、浅色 `#f8fafc`，由 `--glass-surface-opaque` 控制）。横向滚动时滚过的内容被完全盖住，左右固定列与中间列零色差。
+  - 清除 Naive 自带的半透明底色来源：`<table>`（`tdColor` 直接取自 `cardColor`，暗色下是白色 8% 的白罩）、`<thead>`（默认 `thColor` 白色 14%）、表头滚动容器——这些白罩会把所有非固定列提亮，而固定列是实色盖在上面，正是「固定列颜色永远和中间差一截」的根因。
+  - 固定列去掉 `backdrop-filter` 背景采样（此前 `saturate(170%)` 会把背后的彩色光带放大成一条醒目亮带）；行 hover 整行（含固定列）统一不透明底色，hover 到固定列时不再透出滚过的文字重影；分页栏 / 固底栏与表格同面，消除底部色差接缝。
+- **raw 模式 Popover 四角缺角修复**：全局玻璃样式排除 `n-popover--raw`，方角 wrapper 不再往自绘圆角面板（如主题设置弹层）外露 1px 白边和模糊层，四角不再出现「缺口」。
+- **可读性跟随主题**：账号页 `—` 占位符、AI 配额百分比由写死灰色改为主题文字色；Account ID 改等宽字体（截断的十六进制 ID 更易辨认）；紧凑账户卡片用量数值由 disabled 色改为次级文字色并启用等宽数字；AI 对话「思考中」提示、Workers 卡片计数、卡片无数据提示等 disabled 色文案统一改为 tertiary。
+- **磨砂玻璃系统**：模糊浓度档位区分浅色 / 暗色两套参数，并同步驱动面板「磨砂雾度」；背景新增大尺度斜向光带结构层，保证档位切换肉眼可辨；语义色对比度校验的暗色参照背景更新为玻璃面板合成色。
+- **存储管理页布局**：修复 `n-spin` 容器高度链断裂与 `n-empty` 自带外边距在滚动容器内产生的虚假滚动条，空状态改用 auto margin 居中。
+
+## [2.4.0] - 2026-09-29
+
+### ✨ 新功能
+
+- **前端主题系统（磨砂玻璃 + 可配置主题色）**：新增 `utils/theme.ts` 与 `components/ThemeSettingsPopover.vue`，支持外观模式（跟随系统 / 浅色 / 深色）、6 套系统主题色（Cloudflare 橙 / 极客绿 / 科技蓝 / 赛博紫 / 未来青 / 珊瑚粉）、磨砂玻璃开关与四档模糊浓度，配置持久化到 localStorage 并即时生效。
+  - **Naive UI 主题联动**：`App.vue` 通过 `n-config-provider` 注入 `themeOverrides`；`utils/discreteApi.ts` 让 `message / notification / dialog` 等 discrete API 同步主题与主题色。
+  - **环境光晕背景层**：新增固定层 `.ambient-glow-layer` 与模糊光球，为磨砂卡片提供真实折射底色；侧边栏、登录页、页头等同步玻璃化改造。
+  - **整套语义色跟随主题色**：`info / success / warning / error` 由主题色相 + 明度阶梯派生，并用 WCAG 对比度逐档兜底校准；`error` 保留红色锚点，保证「删除 / 出错」仍有危险提示。
+  - **i18n**：补齐 `theme.*` 中英文文案及若干操作提示（如 DNS 保存提示、存储页选库提示）。
+- **新增 `AutoFitTable` 通用表格组件**：自适应容器高度（`flex-height` + 表头吸附）、玻璃容器外观、`scroll-x` 自动兜底（`max(传入值, 列宽合计)`），并统一各页面表格的滚动与固定列行为。
+
+### 🐞 修复与优化
+
+- **表格横向滚动与固定列**：横向滚动宽度按「列宽合计」兜底，修复 Workers 等表格最右列（如「删除」按钮）永远滚不到的问题；固定列改为不透明底色，消除滚动时下层内容透出造成的文字重叠；表格容器与分页栏改用近实心底色。
+- **页面高度适配**：存储管理页修复表格把网格行撑高导致整页超出视口被裁切；移动端仪表盘日志表格增加限高与内部滚动并调整列宽，避免整页被撑到近万像素。
+- **配色与描边一致性**：修复主题面板色块、表格行线、分页栏分隔线「边框消失」；账号页「批量测试全部账户」改为跟随主题色；清理各页面残留的旧版硬编码色值。
+
+## [2.3.0] - 2026-09-23
+
+### ✨ 新功能
+
+- **多账户 Workers 计划（worker_plan）标记与付费 AI 模型智能路由（双端对称）**：
+  - **数据库**：`accounts` 表新增 `worker_plan TEXT DEFAULT 'free'` 列，backend（SQLite 迁移 `0009_accounts_worker_plan`）与 worker（D1 迁移 `0010_accounts_worker_plan.sql` + `schema.sql`）严格对齐并经 `schema-check` 验证。
+  - **计划探测与子域名分配**：`accountProbe` 支持探测账户的 Cloudflare Workers 计划类型；两端新增 `workerSubdomain.ts` 支持按需查询与预先分配 workers 子域名及计划类型。
+  - **智能路由**：AI 推理与 OpenAI 兼容路由对付费定价模型（`isPaidPricing`）自动仅路由至 `worker_plan` 为 `paid` 或 `enterprise` 的账户，避免免费账户因 Workers 配额限制请求失败。
+  - **前端与 i18n**：账户新增/编辑弹窗支持配置计划类型（free / paid / enterprise）并提供友好提示，双端国际化语言包同步补全。
+
+### 🐞 修复与优化
+
+- **Worker 定时任务（Cron Triggers）鲁棒性与异常处理修复（双端对称）**：
+  - **空数组清空触发器**：修复部署服务 `deploy/triggers.ts` 中 `crons && crons.length > 0` 导致无法清空已有定时任务的缺陷，调整为 `crons !== undefined`，传递 `[]` 显式清理旧触发器，`undefined` 保持现状。
+  - **Worker 端部署错误识别**：修复 Worker 端仅判断 `resp.ok` 导致 Cloudflare API 返回 200 但包含 `{ success: false, errors: [...] }` 时误报成功的问题。
+  - **接口防崩与校验**：双端 `PUT /:accountId/workers/:name/schedules` 引入 `normalizeCronExpressions`，对非法格式拦截并返回 400 校验错误；增加空请求体兜底，消除 `Cannot destructure` / `SyntaxError` 导致的 500 崩溃。
+  - **前端交互与校验**：`WorkerSettingsDrawer.vue` 实时校验 5 段式 Cron 表达式并给出明确红字提示；修复 `saveSchedules()` 缺少 `catch` 块导致保存失败时静默无响应的问题，保存前自动清洗与去重；纠正 weekly 预设为标准 `0 0 * * SUN`。
+- **前端存储管理（StorageView）账户切换缓存隔离**：
+  - 新增 `resetStorageCaches()`，在切换账户时彻底清空 KV、D1、R2 的选中项与游标缓存，防止跨账户数据残留导致旧资源 ID 错误请求 404。
+  - 修复 R2 可用性探测与 tab 激活时的重复网络请求问题。
+- **前端 AI 各子模块账户下拉选项去重**：
+  - 在 `AiChatView`、`AiImageView`、`AiAudioView`、`AiTranslateView` 中对账户下拉框选项按 `value` 严格去重，避免重复 key 引发的 Naive UI 警告。
+- **凭证加解密（Encryption）兼容性与单元测试覆盖**：
+  - 完善 backend 与 worker 端对 Hex 格式密钥与常规格式密钥的解析兼容，补齐加解密和计划判定的单元测试。
+
+## [2.3.0-fork] - 2026-09-17
 
 ### 新功能
 
